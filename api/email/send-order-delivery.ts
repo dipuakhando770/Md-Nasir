@@ -30,6 +30,7 @@ export default async function handler(req: any, res: any) {
       paymentMethod,
       items,
       websiteUrl,
+      logoUrl,
       whatsappNumber,
       smtpConfig,
     } = body;
@@ -56,6 +57,7 @@ export default async function handler(req: any, res: any) {
         paymentMethod: paymentMethod || 'Online Payment',
         items: Array.isArray(items) ? items : [],
         websiteUrl: websiteUrl || autoOrigin,
+        logoUrl,
         whatsappNumber: whatsappNumber || '01962780922',
       },
       smtpConfig

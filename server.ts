@@ -290,6 +290,7 @@ app.post('/api/email/send-order-delivery', async (req, res) => {
       paymentMethod,
       items,
       websiteUrl,
+      logoUrl,
       whatsappNumber,
       smtpConfig,
     } = req.body;
@@ -317,6 +318,7 @@ app.post('/api/email/send-order-delivery', async (req, res) => {
         paymentMethod: paymentMethod || 'PayBD Online (bKash / Nagad / Cards)',
         items: Array.isArray(items) ? items : [],
         websiteUrl: websiteUrl || autoOrigin,
+        logoUrl,
         whatsappNumber: whatsappNumber || '01962780922',
       },
       smtpConfig

@@ -205,14 +205,19 @@ export const OrdersManager: React.FC = () => {
         paymentMethod: order.paymentMethod || 'Manual Approved',
       });
 
-      // 2. Enrich items with product download links if missing
+      // 2. Enrich items with product download links & banner images if missing
       const enrichedItems = (order.items || []).map((item) => {
-        const matched = products.find((p) => p.id === item.productId);
+        const matched = products.find(
+          (p) =>
+            p.id === item.productId ||
+            (p.title && item.title && p.title.toLowerCase().trim() === item.title.toLowerCase().trim()) ||
+            (p.slug && item.productId && p.slug === item.productId)
+        );
         return {
           ...item,
           downloadUrl: item.downloadUrl || matched?.downloadUrl || '',
           livePreviewUrl: item.livePreviewUrl || matched?.livePreviewUrl || '',
-          imageUrl: item.imageUrl || matched?.imageUrl || '',
+          imageUrl: item.imageUrl || matched?.imageUrl || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80',
         };
       });
 
@@ -227,6 +232,8 @@ export const OrdersManager: React.FC = () => {
           amount: Number(order.total) || 0,
           paymentMethod: order.paymentMethod || 'Manual Online Payment',
           items: enrichedItems,
+          logoUrl: settings.logoUrl || undefined,
+          websiteUrl: typeof window !== 'undefined' ? window.location.origin : undefined,
           whatsappNumber: settings.whatsappNumber || '01962780922',
         },
         (settings.smtp as any)?.password || '4ea22f7ead670187bbb994158af679a61877a6df5affcaf3a3d710f9fc11edba'

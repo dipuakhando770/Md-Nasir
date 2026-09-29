@@ -190,6 +190,8 @@ export const PaymentStatusModal: React.FC = () => {
             amount: Number(amountParam) || 0,
             paymentMethod: methodParam || 'PayBD Online (bKash/Nagad/Cards)',
             items,
+            logoUrl: settings.logoUrl || undefined,
+            websiteUrl: typeof window !== 'undefined' ? window.location.origin : undefined,
             whatsappNumber: settings.whatsappNumber || '01962780922',
           })
             .then((result) => {
