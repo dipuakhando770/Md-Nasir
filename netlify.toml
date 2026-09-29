@@ -2,6 +2,45 @@
   command = "npm run build"
   publish = "dist"
 
+[[headers]]
+  for = "/sitemap.xml"
+  [headers.values]
+    Content-Type = "application/xml; charset=utf-8"
+    Cache-Control = "public, max-age=3600, s-maxage=86400"
+
+[[headers]]
+  for = "/robots.txt"
+  [headers.values]
+    Content-Type = "text/plain; charset=utf-8"
+    Cache-Control = "public, max-age=3600, s-maxage=86400"
+
+[[redirects]]
+  from = "/sitemap.xml"
+  to = "/sitemap.xml"
+  status = 200
+  force = false
+
+[[redirects]]
+  from = "/robots.txt"
+  to = "/robots.txt"
+  status = 200
+  force = false
+
+[[redirects]]
+  from = "/api/payment/create"
+  to = "/.netlify/functions/create"
+  status = 200
+
+[[redirects]]
+  from = "/api/payment/callback"
+  to = "/.netlify/functions/callback"
+  status = 200
+
+[[redirects]]
+  from = "/api/meta-conversions"
+  to = "/.netlify/functions/meta-conversions"
+  status = 200
+
 [[redirects]]
   from = "/*"
   to = "/index.html"

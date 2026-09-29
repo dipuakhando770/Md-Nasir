@@ -1,1 +1,7 @@
-/*    /index.html   200
+/sitemap.xml    /sitemap.xml    200
+/robots.txt     /robots.txt     200
+/api/payment/create   /.netlify/functions/create   200
+/api/payment/callback /.netlify/functions/callback 200
+/api/meta-conversions /.netlify/functions/meta-conversions 200
+/api/*          /.netlify/functions/:splat         200
+/*              /index.html                        200
