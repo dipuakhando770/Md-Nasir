@@ -173,46 +173,39 @@ export function generateOrderDeliveryEmailHtml(data: OrderDeliveryEmailData): st
           <tr>
             <td style="background: linear-gradient(135deg, #022c22 0%, #064e3b 45%, #0f172a 100%); padding: 36px 24px; text-align: center; color: #ffffff;">
               
-              <!-- 1. Official Favicon Emblem (100% Email Client Compatible Table Badge) -->
+              <!-- 1. Indestructible Pure HTML/CSS Brand Lockup (100% Reliable in Gmail, Outlook, Yahoo) -->
               <table border="0" cellspacing="0" cellpadding="0" align="center" style="margin: 0 auto 16px auto;">
                 <tr>
                   <td align="center">
-                    <table border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto;">
+                    
+                    <table border="0" cellspacing="0" cellpadding="0" align="center" style="background: #0f172a; border-radius: 20px; border: 2px solid #34d399; box-shadow: 0 10px 28px rgba(5,150,105,0.45); padding: 12px 24px;">
                       <tr>
-                        ${
-                          validLogoUrl
-                            ? `
-                          <td align="center" style="padding-bottom: 8px;">
-                            <img src="${validLogoUrl}" alt="Nasir Digital Hub Logo" height="56" style="height: 56px; max-width: 240px; object-fit: contain; display: block; margin: 0 auto;" />
-                          </td>
-                            `
-                            : `
-                          <!-- Visual 3D Cyber Emblem Favicon -->
-                          <td style="background: #0f172a; border-radius: 18px; border: 2px solid #34d399; box-shadow: 0 8px 24px rgba(5,150,105,0.4); padding: 10px 18px; text-align: center;">
-                            <table border="0" cellspacing="0" cellpadding="0" align="center">
-                              <tr>
-                                <td style="vertical-align: middle; padding-right: 12px;">
-                                  <div style="width: 44px; height: 44px; background: linear-gradient(135deg, #0ea5e9 0%, #059669 100%); border-radius: 12px; text-align: center; line-height: 44px; font-size: 24px; font-weight: 900; color: #ffffff; box-shadow: 0 4px 10px rgba(14,165,233,0.4); border: 1.5px solid rgba(255,255,255,0.4);">
-                                    N
-                                  </div>
-                                </td>
-                                <td style="vertical-align: middle; text-align: left;">
-                                  <div style="font-size: 20px; font-weight: 900; color: #ffffff; letter-spacing: -0.5px; line-height: 1.1;">
-                                    Nasir Digital Hub
-                                  </div>
-                                  <div style="font-size: 10px; font-weight: 800; color: #34d399; letter-spacing: 1px; text-transform: uppercase; margin-top: 3px;">
-                                    Official Store
-                                  </div>
-                                </td>
-                              </tr>
-                            </table>
-                          </td>
-                            `
-                        }
+                        <!-- 3D Geometric Brand Icon Emblem / Favicon -->
+                        <td style="vertical-align: middle; padding-right: 14px;">
+                          <table border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto;">
+                            <tr>
+                              <td align="center" valign="middle" style="width: 48px; height: 48px; background: linear-gradient(135deg, #0ea5e9 0%, #059669 100%); border-radius: 14px; text-align: center; border: 2px solid #67e8f9; box-shadow: 0 4px 12px rgba(14,165,233,0.5);">
+                                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 26px; font-weight: 900; color: #ffffff; line-height: 48px; text-align: center; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">
+                                  N
+                                </div>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                        <!-- Brand Typography -->
+                        <td style="vertical-align: middle; text-align: left;">
+                          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 22px; font-weight: 900; color: #ffffff; letter-spacing: -0.5px; line-height: 1.1; margin: 0;">
+                            Nasir Digital Hub
+                          </div>
+                          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 10px; font-weight: 800; color: #34d399; letter-spacing: 1.2px; text-transform: uppercase; margin-top: 4px;">
+                            Premium Digital Marketplace
+                          </div>
+                        </td>
                       </tr>
                     </table>
 
-                    <div style="margin-top: 10px;">
+                    <!-- Official Verification Sub-badge -->
+                    <div style="margin-top: 12px;">
                       <span style="display: inline-block; background: rgba(52, 211, 153, 0.18); border: 1px solid rgba(52, 211, 153, 0.4); border-radius: 9999px; padding: 4px 14px; font-size: 10px; font-weight: 800; color: #a7f3d0; letter-spacing: 0.6px; text-transform: uppercase;">
                         🛡️ Verified Official Digital Product Delivery
                       </span>
