@@ -13,7 +13,8 @@ import {
   Unsubscribe,
   limit,
 } from 'firebase/firestore';
-import { db } from './config';
+import { ref, set, update, remove, onValue, off } from 'firebase/database';
+import { db, rtdb } from './config';
 import { handleFirestoreError, OperationType } from './errorHandler';
 import { Product, Category, StoreSettings, HomepageSection, Benefit, Campaign, Order } from '../types';
 import { DEFAULT_HD_HERO_SLIDES } from '../constants/defaultBanners';
@@ -970,49 +971,117 @@ export async function deleteCampaign(id: string): Promise<void> {
   }
 }
 
-// ==================== ORDERS ====================
+// ==================== ORDERS (DUAL REALTIME DATABASE & FIRESTORE ENGINE) ====================
 export async function createOrder(
   orderData: Partial<Order> & { customerPhone: string; total: number }
 ): Promise<string> {
-  const path = 'orders';
+  const orderId = orderData.id || `ORD-${Date.now().toString().slice(-6)}`;
+  const cleanPayload = cleanFirestoreData({
+    ...orderData,
+    id: orderId,
+    status: orderData.status || 'pending',
+    paymentStatus: orderData.paymentStatus || 'pending',
+    createdAt: orderData.createdAt || Date.now(),
+  });
+
+  // 1. Persist to Firebase Realtime Database
   try {
-    const orderId = orderData.id || `ORD-${Date.now().toString().slice(-6)}`;
-    const docRef = doc(db, 'orders', orderId);
-    const cleanPayload = cleanFirestoreData({
-      ...orderData,
-      id: orderId,
-      status: orderData.status || 'pending',
-      paymentStatus: orderData.paymentStatus || 'pending',
-      createdAt: orderData.createdAt || Date.now(),
-    });
-    await setDoc(docRef, cleanPayload, { merge: true });
-    return orderId;
-  } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, path);
-    return orderData.id || '';
+    const rtdbOrderRef = ref(rtdb, `orders/${orderId}`);
+    await set(rtdbOrderRef, cleanPayload);
+  } catch (rtdbErr) {
+    console.warn('Realtime Database order create notice:', rtdbErr);
   }
+
+  // 2. Persist to Firestore
+  try {
+    const docRef = doc(db, 'orders', orderId);
+    await setDoc(docRef, cleanPayload, { merge: true });
+  } catch (error) {
+    console.warn('Firestore order create notice:', error);
+  }
+
+  return orderId;
 }
 
 export function subscribeToOrders(
   onSuccess: (orders: Order[]) => void,
   onError?: (err: unknown) => void
 ): Unsubscribe {
-  const path = 'orders';
-  const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'), limit(100));
-  return onSnapshot(
+  let isSubscribed = true;
+  let rtdbOrdersMap = new Map<string, Order>();
+  let firestoreOrdersMap = new Map<string, Order>();
+
+  const emitMergedOrders = () => {
+    if (!isSubscribed) return;
+    const mergedMap = new Map<string, Order>();
+
+    // Add Firestore orders
+    firestoreOrdersMap.forEach((ord, id) => mergedMap.set(id, ord));
+
+    // Overwrite / Merge Realtime Database orders
+    rtdbOrdersMap.forEach((ord, id) => {
+      const existing = mergedMap.get(id);
+      if (!existing || (ord.updatedAt || ord.createdAt || 0) >= (existing.updatedAt || existing.createdAt || 0)) {
+        mergedMap.set(id, ord);
+      }
+    });
+
+    const ordersList = Array.from(mergedMap.values()).sort(
+      (a, b) => (b.createdAt || 0) - (a.createdAt || 0)
+    );
+
+    onSuccess(ordersList);
+  };
+
+  // 1. Listen to Firebase Realtime Database
+  const rtdbOrdersRef = ref(rtdb, 'orders');
+  const handleRtdbValue = (snapshot: any) => {
+    try {
+      const data = snapshot.val();
+      rtdbOrdersMap.clear();
+      if (data && typeof data === 'object') {
+        Object.keys(data).forEach((key) => {
+          const ord = data[key];
+          if (ord) {
+            rtdbOrdersMap.set(key, { id: key, ...ord });
+          }
+        });
+      }
+      emitMergedOrders();
+    } catch (err) {
+      console.warn('Realtime Database orders parse notice:', err);
+    }
+  };
+
+  onValue(rtdbOrdersRef, handleRtdbValue, (err) => {
+    console.warn('Realtime Database orders subscription note:', err);
+  });
+
+  // 2. Listen to Firestore Database
+  const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'), limit(150));
+  const unsubFirestore = onSnapshot(
     q,
     (snapshot) => {
-      const orders: Order[] = [];
+      firestoreOrdersMap.clear();
       snapshot.forEach((docSnap) => {
-        orders.push({ id: docSnap.id, ...(docSnap.data() as Omit<Order, 'id'>) });
+        firestoreOrdersMap.set(docSnap.id, {
+          id: docSnap.id,
+          ...(docSnap.data() as Omit<Order, 'id'>),
+        });
       });
-      onSuccess(orders);
+      emitMergedOrders();
     },
     (error) => {
       if (onError) onError(error);
-      handleFirestoreError(error, OperationType.LIST, path);
+      emitMergedOrders();
     }
   );
+
+  return () => {
+    isSubscribed = false;
+    off(rtdbOrdersRef, 'value', handleRtdbValue);
+    unsubFirestore();
+  };
 }
 
 export async function updateOrderStatus(
@@ -1021,33 +1090,50 @@ export async function updateOrderStatus(
   paymentStatus?: Order['paymentStatus'],
   additionalData?: Record<string, any>
 ): Promise<void> {
-  const path = `orders/${orderId}`;
+  const updateData: any = { status, updatedAt: Date.now() };
+  if (paymentStatus) {
+    updateData.paymentStatus = paymentStatus;
+  }
+  if (additionalData) {
+    Object.assign(updateData, cleanFirestoreData(additionalData));
+  }
+
+  // 1. Update Firebase Realtime Database
+  try {
+    const rtdbOrderRef = ref(rtdb, `orders/${orderId}`);
+    await update(rtdbOrderRef, updateData);
+  } catch (rtdbErr) {
+    console.warn('Realtime Database order status update notice:', rtdbErr);
+  }
+
+  // 2. Update Firestore Database
   try {
     const docRef = doc(db, 'orders', orderId);
-    const updateData: any = { status, updatedAt: Date.now() };
-    if (paymentStatus) {
-      updateData.paymentStatus = paymentStatus;
-    }
-    if (additionalData) {
-      Object.assign(updateData, additionalData);
-    }
     await setDoc(docRef, updateData, { merge: true });
   } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, path);
+    console.warn('Firestore order status update notice:', error);
   }
 }
 
 export async function deleteOrder(orderId: string): Promise<void> {
-  const path = `orders/${orderId}`;
+  // 1. Delete from Realtime Database
+  try {
+    const rtdbOrderRef = ref(rtdb, `orders/${orderId}`);
+    await remove(rtdbOrderRef);
+  } catch (rtdbErr) {
+    console.warn('Realtime Database order delete notice:', rtdbErr);
+  }
+
+  // 2. Delete from Firestore
   try {
     await deleteDoc(doc(db, 'orders', orderId));
   } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, path);
+    handleFirestoreError(error, OperationType.DELETE, `orders/${orderId}`);
   }
 }
 
 /* ==========================================================================
-   Activity & Analytics Log Services
+   Activity & Analytics Log Services (Dual Realtime Database & Firestore)
    ========================================================================== */
 
 export async function logActivity(
@@ -1056,8 +1142,9 @@ export async function logActivity(
   const timestamp = Date.now();
   const rawId = 'act_' + Math.random().toString(36).substring(2, 9) + '_' + timestamp;
 
-  // Clean undefined values so Firestore doesn't reject
+  // Clean undefined values
   const cleaned: Record<string, any> = {
+    id: rawId,
     type: activity.type || 'page_view',
     title: activity.title || 'অ্যাক্টিভিটি',
     timestamp,
@@ -1072,9 +1159,9 @@ export async function logActivity(
   if (activity.customerPhone) cleaned.customerPhone = activity.customerPhone;
   if (activity.device) cleaned.device = activity.device;
 
-  const fullLog = { id: rawId, ...cleaned } as import('../types').ActivityLog;
+  const fullLog = cleaned as import('../types').ActivityLog;
 
-  // 1. Immediately store in LocalStorage & broadcast for instant UI reflection
+  // 1. Local Storage for instant feedback
   try {
     const existing: import('../types').ActivityLog[] = JSON.parse(
       localStorage.getItem('ndh_activity_logs') || '[]'
@@ -1082,7 +1169,6 @@ export async function logActivity(
     const updated = [fullLog, ...existing.filter((l) => l.id !== rawId)].slice(0, 200);
     localStorage.setItem('ndh_activity_logs', JSON.stringify(updated));
 
-    // Dispatch local event
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('ndh_activity_event', { detail: fullLog }));
       if ('BroadcastChannel' in window) {
@@ -1095,12 +1181,20 @@ export async function logActivity(
     console.warn('Local log dispatch error:', e);
   }
 
-  // 2. Persist to Firestore
+  // 2. Persist to Firebase Realtime Database
+  try {
+    const rtdbLogRef = ref(rtdb, `activity_logs/${rawId}`);
+    set(rtdbLogRef, cleaned).catch(() => {});
+  } catch (e) {
+    console.warn('Realtime Database log write notice:', e);
+  }
+
+  // 3. Persist to Firestore
   try {
     const docRef = doc(db, 'activity_logs', rawId);
-    await setDoc(docRef, cleaned);
+    setDoc(docRef, cleaned).catch(() => {});
   } catch (error) {
-    console.warn('Firestore activity log write note:', error);
+    console.warn('Firestore activity log write notice:', error);
   }
 }
 
@@ -1108,25 +1202,32 @@ export function subscribeToActivityLogs(
   onSuccess: (logs: import('../types').ActivityLog[]) => void,
   onError?: (err: unknown) => void
 ): Unsubscribe {
-  const path = 'activity_logs';
   let isSubscribed = true;
+  let rtdbLogsMap = new Map<string, import('../types').ActivityLog>();
+  let fsLogsMap = new Map<string, import('../types').ActivityLog>();
 
-  const getMergedLogs = (firestoreLogs: import('../types').ActivityLog[] = []) => {
+  const getMergedLogs = () => {
     try {
       const localLogs: import('../types').ActivityLog[] = JSON.parse(
         localStorage.getItem('ndh_activity_logs') || '[]'
       );
       const map = new Map<string, import('../types').ActivityLog>();
-      // Firestore logs first
-      firestoreLogs.forEach((l) => map.set(l.id, l));
-      // Local logs fallback
+
+      // 1. Firestore logs
+      fsLogsMap.forEach((l) => map.set(l.id, l));
+
+      // 2. Realtime Database logs
+      rtdbLogsMap.forEach((l) => map.set(l.id, l));
+
+      // 3. Local logs fallback
       localLogs.forEach((l) => {
         if (!map.has(l.id)) map.set(l.id, l);
       });
+
       const list = Array.from(map.values()).sort((a, b) => b.timestamp - a.timestamp);
       return list.slice(0, 150);
     } catch {
-      return firestoreLogs;
+      return Array.from(fsLogsMap.values());
     }
   };
 
@@ -1147,16 +1248,38 @@ export function subscribeToActivityLogs(
     window.addEventListener('storage', handleLocalEvent);
   }
 
+  // 1. Realtime Database Listener
+  const rtdbLogsRef = ref(rtdb, 'activity_logs');
+  const handleRtdbLogs = (snapshot: any) => {
+    try {
+      const data = snapshot.val();
+      rtdbLogsMap.clear();
+      if (data && typeof data === 'object') {
+        Object.keys(data).forEach((key) => {
+          const l = data[key];
+          if (l) rtdbLogsMap.set(key, { id: key, ...l });
+        });
+      }
+      if (isSubscribed) {
+        onSuccess(getMergedLogs());
+      }
+    } catch (e) {
+      console.warn('Realtime Database logs parse notice:', e);
+    }
+  };
+  onValue(rtdbLogsRef, handleRtdbLogs);
+
+  // 2. Firestore Listener
   const q = query(collection(db, 'activity_logs'), orderBy('timestamp', 'desc'), limit(150));
   const unsubFirestore = onSnapshot(
     q,
     (snapshot) => {
-      const fsLogs: import('../types').ActivityLog[] = [];
+      fsLogsMap.clear();
       snapshot.forEach((docSnap) => {
-        fsLogs.push({ id: docSnap.id, ...(docSnap.data() as Omit<import('../types').ActivityLog, 'id'>) });
+        fsLogsMap.set(docSnap.id, { id: docSnap.id, ...(docSnap.data() as Omit<import('../types').ActivityLog, 'id'>) });
       });
       if (isSubscribed) {
-        onSuccess(getMergedLogs(fsLogs));
+        onSuccess(getMergedLogs());
       }
     },
     (error) => {
@@ -1169,6 +1292,7 @@ export function subscribeToActivityLogs(
 
   return () => {
     isSubscribed = false;
+    off(rtdbLogsRef, 'value', handleRtdbLogs);
     unsubFirestore();
     if (typeof window !== 'undefined') {
       window.removeEventListener('ndh_activity_event', handleLocalEvent);
@@ -1178,17 +1302,26 @@ export function subscribeToActivityLogs(
 }
 
 export async function clearOldActivityLogs(): Promise<void> {
-  const path = 'activity_logs';
+  localStorage.removeItem('ndh_activity_logs');
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('ndh_activity_event'));
+  }
+
+  // 1. Clear Realtime Database
   try {
-    localStorage.removeItem('ndh_activity_logs');
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('ndh_activity_event'));
-    }
+    const rtdbLogsRef = ref(rtdb, 'activity_logs');
+    await remove(rtdbLogsRef);
+  } catch (e) {
+    console.warn('Realtime Database clear logs notice:', e);
+  }
+
+  // 2. Clear Firestore
+  try {
     const q = query(collection(db, 'activity_logs'), limit(100));
     const snapshot = await getDocs(q);
     const batchOps = snapshot.docs.map((d) => deleteDoc(d.ref));
     await Promise.all(batchOps);
   } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, path);
+    handleFirestoreError(error, OperationType.DELETE, 'activity_logs');
   }
 }
