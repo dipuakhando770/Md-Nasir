@@ -22,6 +22,20 @@ export interface OrderDeliveryEmailData {
   whatsappNumber?: string;
 }
 
+/**
+ * Normalizes an image/logo URL for 100% email client compatibility (Gmail, Outlook, Yahoo, Apple Mail).
+ * Strips data URIs and resolves relative paths to absolute HTTPS URLs.
+ */
+function resolveEmailImageUrl(url: string | undefined, baseUrl: string, fallbackUrl: string): string {
+  if (!url || typeof url !== 'string') return fallbackUrl;
+  const trimmed = url.trim();
+  if (!trimmed || trimmed.startsWith('data:image/')) return fallbackUrl;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  const cleanBase = baseUrl.replace(/\/+$/, '');
+  const cleanPath = trimmed.replace(/^\/+/, '');
+  return `${cleanBase}/${cleanPath}`;
+}
+
 export function generateOrderDeliveryEmailHtml(data: OrderDeliveryEmailData): string {
   const {
     orderId,
@@ -45,9 +59,13 @@ export function generateOrderDeliveryEmailHtml(data: OrderDeliveryEmailData): st
     `আসসালামু আলাইকুম! আমার অর্ডার #${orderId} সংক্রান্ত সহযোগিতা প্রয়োজন।`
   )}`;
 
-  // Default fallback image if product image is missing
+  // Guaranteed public HTTPS hosted brand logo & category banners
+  const fallbackBrandLogo =
+    'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=240&auto=format&fit=crop&q=80';
   const defaultProductBanner =
-    'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80';
+    'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80';
+
+  const validLogoUrl = resolveEmailImageUrl(logoUrl, websiteUrl, '');
 
   const itemsHtml = items
     .map((item, index) => {
@@ -65,35 +83,35 @@ export function generateOrderDeliveryEmailHtml(data: OrderDeliveryEmailData): st
           : `https://${rawPreview}`
         : '';
 
-      const itemBannerUrl = (item.imageUrl && item.imageUrl.trim()) || defaultProductBanner;
+      const itemBannerUrl = resolveEmailImageUrl(item.imageUrl, websiteUrl, defaultProductBanner);
 
       return `
       <!-- Product Item Card ${index + 1} -->
-      <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 20px; background-color: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+      <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 22px; background-color: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 18px; overflow: hidden; box-shadow: 0 4px 8px -2px rgba(0, 0, 0, 0.06);">
         <!-- Product Banner Image Row -->
         <tr>
           <td style="padding: 0; background-color: #0f172a; text-align: center;">
-            <img src="${itemBannerUrl}" alt="${item.title}" width="100%" style="width: 100%; max-height: 180px; object-fit: cover; display: block; border-bottom: 2px solid #10b981;" />
+            <img src="${itemBannerUrl}" alt="${item.title}" width="100%" style="width: 100%; max-height: 200px; object-fit: cover; display: block; border-bottom: 3px solid #10b981;" />
           </td>
         </tr>
         <!-- Product Content Body -->
         <tr>
-          <td style="padding: 20px 22px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+          <td style="padding: 22px 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
             
-            <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px;">
-              <h4 style="margin: 0; font-size: 16px; font-weight: 800; color: #0f172a; line-height: 1.4;">
+            <div style="margin-bottom: 8px;">
+              <h4 style="margin: 0; font-size: 17px; font-weight: 800; color: #0f172a; line-height: 1.4;">
                 ${index + 1}. ${item.title}
               </h4>
             </div>
 
-            <div style="font-size: 13px; color: #64748b; margin-bottom: 14px; background: #f8fafc; padding: 6px 12px; border-radius: 8px; display: inline-block; border: 1px solid #e2e8f0;">
+            <div style="font-size: 13px; color: #64748b; margin-bottom: 16px; background: #f8fafc; padding: 6px 14px; border-radius: 8px; display: inline-block; border: 1px solid #e2e8f0;">
               পরিমাণ: <strong style="color: #0f172a;">${item.quantity || 1} টি</strong> &nbsp;|&nbsp; 
               মূল্য: <strong style="color: #059669;">${item.price} ৳</strong>
             </div>
 
             <!-- Download & Access Link Box -->
-            <div style="background-color: #f0fdf4; border: 1.5px solid #86efac; border-radius: 12px; padding: 16px; margin-top: 6px;">
-              <div style="font-size: 12px; font-weight: 700; color: #166534; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
+            <div style="background-color: #f0fdf4; border: 1.5px solid #86efac; border-radius: 14px; padding: 18px; margin-top: 6px;">
+              <div style="font-size: 12px; font-weight: 800; color: #166534; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">
                 🔑 ডিজিটাল অ্যাক্সেস ও ডাউনলোড লিঙ্ক:
               </div>
 
@@ -101,7 +119,7 @@ export function generateOrderDeliveryEmailHtml(data: OrderDeliveryEmailData): st
                 finalDownloadUrl
                   ? `
                 <div style="margin-bottom: 12px;">
-                  <a href="${finalDownloadUrl}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #059669 0%, #047857 100%); color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 10px; font-weight: 800; font-size: 14px; box-shadow: 0 4px 10px rgba(5,150,105,0.3); text-align: center;">
+                  <a href="${finalDownloadUrl}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #059669 0%, #047857 100%); color: #ffffff; text-decoration: none; padding: 13px 26px; border-radius: 12px; font-weight: 800; font-size: 14px; box-shadow: 0 4px 12px rgba(5,150,105,0.35); text-align: center;">
                     📥 এক্সেস লিংক / ফাইল ডাউনলোড করুন
                   </a>
                 </div>
@@ -119,7 +137,7 @@ export function generateOrderDeliveryEmailHtml(data: OrderDeliveryEmailData): st
               ${
                 finalPreviewUrl
                   ? `
-                <div style="margin-top: 10px; font-size: 12px;">
+                <div style="margin-top: 12px; font-size: 12px;">
                   <a href="${finalPreviewUrl}" target="_blank" style="color: #2563eb; text-decoration: underline; font-weight: 700;">
                     🔗 লাইভ ডেমো / প্রিভিউ পেজ দেখুন &rarr;
                   </a>
@@ -132,7 +150,7 @@ export function generateOrderDeliveryEmailHtml(data: OrderDeliveryEmailData): st
           </td>
         </tr>
       </table>
-    `;
+      `;
     })
     .join('');
 
@@ -151,53 +169,60 @@ export function generateOrderDeliveryEmailHtml(data: OrderDeliveryEmailData): st
         <!-- Main Card Container -->
         <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0;">
           
-          <!-- Top Header with Website Main Favicon & Brand Logo -->
+          <!-- Top Header with Website Main Brand Favicon & Logo -->
           <tr>
-            <td style="background: linear-gradient(135deg, #022c22 0%, #064e3b 50%, #0f172a 100%); padding: 36px 24px; text-align: center; color: #ffffff;">
+            <td style="background: linear-gradient(135deg, #022c22 0%, #064e3b 45%, #0f172a 100%); padding: 36px 24px; text-align: center; color: #ffffff;">
               
-              <!-- 1. Main Website Favicon Emblem at Top -->
+              <!-- 1. Official Favicon Emblem (100% Email Client Compatible Table Badge) -->
               <table border="0" cellspacing="0" cellpadding="0" align="center" style="margin: 0 auto 16px auto;">
                 <tr>
                   <td align="center">
-                    <div style="width: 68px; height: 68px; background: linear-gradient(135deg, #022c22 0%, #0f172a 100%); border-radius: 20px; border: 2.5px solid #34d399; box-shadow: 0 10px 25px rgba(5, 150, 105, 0.45); text-align: center; line-height: 64px; display: inline-block;">
-                      ${
-                        logoUrl
-                          ? `<img src="${logoUrl}" alt="Favicon" width="48" height="48" style="width: 48px; height: 48px; object-fit: contain; vertical-align: middle; border-radius: 10px;" />`
-                          : `
-                          <table border="0" cellspacing="0" cellpadding="0" align="center" style="width: 100%; height: 100%;">
-                            <tr>
-                              <td align="center" valign="middle">
-                                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 26px; font-weight: 900; color: #ffffff;">
-                                  <span style="color: #38bdf8;">N</span><span style="color: #34d399;">D</span><span style="color: #f59e0b; font-size: 16px;">✦</span>
-                                </div>
-                              </td>
-                            </tr>
-                          </table>
-                          `
-                      }
-                    </div>
-                    <div style="margin-top: 6px;">
-                      <span style="display: inline-block; background: rgba(52, 211, 153, 0.15); border: 1px solid rgba(52, 211, 153, 0.35); border-radius: 9999px; padding: 3px 10px; font-size: 9px; font-weight: 800; color: #6ee7b7; letter-spacing: 0.8px; text-transform: uppercase;">
-                        🛡️ Nasir Digital Hub Official
+                    <table border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto;">
+                      <tr>
+                        ${
+                          validLogoUrl
+                            ? `
+                          <td align="center" style="padding-bottom: 8px;">
+                            <img src="${validLogoUrl}" alt="Nasir Digital Hub Logo" height="56" style="height: 56px; max-width: 240px; object-fit: contain; display: block; margin: 0 auto;" />
+                          </td>
+                            `
+                            : `
+                          <!-- Visual 3D Cyber Emblem Favicon -->
+                          <td style="background: #0f172a; border-radius: 18px; border: 2px solid #34d399; box-shadow: 0 8px 24px rgba(5,150,105,0.4); padding: 10px 18px; text-align: center;">
+                            <table border="0" cellspacing="0" cellpadding="0" align="center">
+                              <tr>
+                                <td style="vertical-align: middle; padding-right: 12px;">
+                                  <div style="width: 44px; height: 44px; background: linear-gradient(135deg, #0ea5e9 0%, #059669 100%); border-radius: 12px; text-align: center; line-height: 44px; font-size: 24px; font-weight: 900; color: #ffffff; box-shadow: 0 4px 10px rgba(14,165,233,0.4); border: 1.5px solid rgba(255,255,255,0.4);">
+                                    N
+                                  </div>
+                                </td>
+                                <td style="vertical-align: middle; text-align: left;">
+                                  <div style="font-size: 20px; font-weight: 900; color: #ffffff; letter-spacing: -0.5px; line-height: 1.1;">
+                                    Nasir Digital Hub
+                                  </div>
+                                  <div style="font-size: 10px; font-weight: 800; color: #34d399; letter-spacing: 1px; text-transform: uppercase; margin-top: 3px;">
+                                    Official Store
+                                  </div>
+                                </td>
+                              </tr>
+                            </table>
+                          </td>
+                            `
+                        }
+                      </tr>
+                    </table>
+
+                    <div style="margin-top: 10px;">
+                      <span style="display: inline-block; background: rgba(52, 211, 153, 0.18); border: 1px solid rgba(52, 211, 153, 0.4); border-radius: 9999px; padding: 4px 14px; font-size: 10px; font-weight: 800; color: #a7f3d0; letter-spacing: 0.6px; text-transform: uppercase;">
+                        🛡️ Verified Official Digital Product Delivery
                       </span>
                     </div>
                   </td>
                 </tr>
               </table>
 
-              <!-- 2. Brand Name Title -->
-              <h1 style="margin: 0; font-size: 24px; font-weight: 900; color: #ffffff; letter-spacing: -0.5px;">
-                Nasir Digital Hub
-              </h1>
-              <p style="margin: 4px 0 12px 0; font-size: 11px; font-weight: 700; color: #34d399; letter-spacing: 1px; text-transform: uppercase;">
-                Premium Digital Products Marketplace
-              </p>
-
-              <!-- 3. Verified Delivery Pill -->
-              <div style="display: inline-block; background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(52, 211, 153, 0.4); border-radius: 9999px; padding: 6px 18px; font-size: 12px; font-weight: 800; color: #a7f3d0; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px;">
-                ✅ অর্ডার কনফার্মড ও পণ্য ডেলিভারি
-              </div>
-              <h2 style="margin: 12px 0 0 0; font-size: 18px; font-weight: 800; color: #ffffff; letter-spacing: -0.3px;">
+              <!-- 2. Headline Title -->
+              <h2 style="margin: 14px 0 0 0; font-size: 20px; font-weight: 800; color: #ffffff; letter-spacing: -0.3px; line-height: 1.4;">
                 আপনার ক্রয়কৃত ডিজিটাল প্রোডাক্ট ও অ্যাক্সেস লিঙ্ক
               </h2>
             </td>
