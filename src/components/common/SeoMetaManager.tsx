@@ -137,7 +137,7 @@ export const SeoMetaManager: React.FC<SeoMetaManagerProps> = ({
     const gVerify =
       (settings as any).googleSiteVerification ||
       (typeof process !== 'undefined' ? process.env?.VITE_GOOGLE_SITE_VERIFICATION : undefined) ||
-      '';
+      'nNC_6sZlQCSTbyCWAiIP__5d1jbVJGNqrxMtpZ64qMo';
     if (gVerify) {
       upsertMetaTag('name', 'google-site-verification', gVerify);
     }
