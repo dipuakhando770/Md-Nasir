@@ -1,0 +1,208 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Default-deny catch-all safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Hardened Authentication & Primitive Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.uid == 'gFWFL8xck2XCvXo1UZ9MaVjnzqK2' ||
+        request.auth.token.email == 'mdnasirhassan3@gmail.com'
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidUrl(url) {
+      return url is string && url.size() <= 900000 && (
+        url.matches('^https?://.+') ||
+        url.matches('^data:image/(jpeg|jpg|png|webp);base64,[a-zA-Z0-9+/=]+$')
+      );
+    }
+
+    // 3. Entity Validation Blueprints
+    function isValidProduct(data) {
+      return data.title is string && data.title.size() > 0 && data.title.size() <= 300 &&
+        data.slug is string && data.slug.size() > 0 && data.slug.size() <= 300 && data.slug.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.categoryId is string && isValidId(data.categoryId) &&
+        data.description is string && data.description.size() <= 25000 &&
+        (!('shortDescription' in data) || (data.shortDescription is string && data.shortDescription.size() <= 2000)) &&
+        data.imageUrl is string && (data.imageUrl == '' || isValidUrl(data.imageUrl)) &&
+        data.price is number && data.price >= 0 &&
+        (!('oldPrice' in data) || (data.oldPrice is number && data.oldPrice >= 0)) &&
+        data.available is bool &&
+        data.featured is bool &&
+        (!('newArrival' in data) || data.newArrival is bool) &&
+        data.type in ['digital', 'physical'] &&
+        (!('rating' in data) || (data.rating is number && data.rating >= 0 && data.rating <= 5)) &&
+        (!('reviewCount' in data) || (data.reviewCount is number && data.reviewCount >= 0)) &&
+        (!('tags' in data) || (data.tags is list && data.tags.size() <= 50)) &&
+        (!('gallery' in data) || (data.gallery is list && data.gallery.size() <= 20)) &&
+        (!('isFree' in data) || data.isFree is bool) &&
+        (!('downloadUrl' in data) || (data.downloadUrl is string && data.downloadUrl.size() <= 2000)) &&
+        (!('livePreviewEnabled' in data) || data.livePreviewEnabled is bool) &&
+        (!('livePreviewUrl' in data) || (data.livePreviewUrl is string && data.livePreviewUrl.size() <= 2000)) &&
+        data.createdAt is number && data.createdAt > 0 &&
+        (!('updatedAt' in data) || (data.updatedAt is number && data.updatedAt > 0));
+    }
+
+    function isValidCategory(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() <= 150 &&
+        data.slug is string && data.slug.size() > 0 && data.slug.size() <= 150 && data.slug.matches('^[a-zA-Z0-9_\\-]+$') &&
+        (!('description' in data) || (data.description is string && data.description.size() <= 2000)) &&
+        (!('imageUrl' in data) || (data.imageUrl is string && (data.imageUrl == '' || isValidUrl(data.imageUrl)))) &&
+        (!('sortOrder' in data) || data.sortOrder is number) &&
+        data.active is bool &&
+        data.createdAt is number && data.createdAt > 0;
+    }
+
+    function isValidSettings(data) {
+      return (!('websiteName' in data) || (data.websiteName is string && data.websiteName.size() <= 150)) &&
+        (!('tagline' in data) || (data.tagline is string && data.tagline.size() <= 300)) &&
+        (!('description' in data) || (data.description is string && data.description.size() <= 5000)) &&
+        (!('metaTitle' in data) || (data.metaTitle is string && data.metaTitle.size() <= 300)) &&
+        (!('metaDescription' in data) || (data.metaDescription is string && data.metaDescription.size() <= 2000)) &&
+        (!('metaKeywords' in data) || (data.metaKeywords is string && data.metaKeywords.size() <= 2000)) &&
+        (!('ogImageUrl' in data) || (data.ogImageUrl is string && (data.ogImageUrl == '' || isValidUrl(data.ogImageUrl)))) &&
+        (!('hideHeaderTitle' in data) || data.hideHeaderTitle is bool) &&
+        (!('whatsappNumber' in data) || (data.whatsappNumber is string && data.whatsappNumber.size() <= 50)) &&
+        (!('deliveryCharge' in data) || (data.deliveryCharge is number && data.deliveryCharge >= 0)) &&
+        (!('logoUrl' in data) || (data.logoUrl is string && (data.logoUrl == '' || isValidUrl(data.logoUrl)))) &&
+        (!('loadingLogoUrl' in data) || (data.loadingLogoUrl is string && (data.loadingLogoUrl == '' || isValidUrl(data.loadingLogoUrl)))) &&
+        (!('faviconUrl' in data) || (data.faviconUrl is string && (data.faviconUrl == '' || isValidUrl(data.faviconUrl)))) &&
+        (!('heroMediaUrl' in data) || (data.heroMediaUrl is string && (data.heroMediaUrl == '' || isValidUrl(data.heroMediaUrl)))) &&
+        (!('heroMediaType' in data) || data.heroMediaType in ['video', 'image']) &&
+        (!('heroHeadline' in data) || (data.heroHeadline is string && data.heroHeadline.size() <= 300)) &&
+        (!('heroSubtitle' in data) || (data.heroSubtitle is string && data.heroSubtitle.size() <= 1000)) &&
+        (!('heroBadge' in data) || (data.heroBadge is string && data.heroBadge.size() <= 100)) &&
+        (!('heroPrimaryCtaText' in data) || (data.heroPrimaryCtaText is string && data.heroPrimaryCtaText.size() <= 100)) &&
+        (!('heroPrimaryCtaLink' in data) || (data.heroPrimaryCtaLink is string && data.heroPrimaryCtaLink.size() <= 200)) &&
+        (!('heroSecondaryCtaText' in data) || (data.heroSecondaryCtaText is string && data.heroSecondaryCtaText.size() <= 100)) &&
+        (!('heroSecondaryCtaLink' in data) || (data.heroSecondaryCtaLink is string && data.heroSecondaryCtaLink.size() <= 200)) &&
+        (!('heroAutoSlide' in data) || data.heroAutoSlide is bool) &&
+        (!('heroSlideInterval' in data) || (data.heroSlideInterval is number && data.heroSlideInterval >= 1)) &&
+        (!('heroSlides' in data) || (data.heroSlides is list && data.heroSlides.size() <= 50)) &&
+        (!('heroProductIds' in data) || data.heroProductIds is map) &&
+        (!('announcement' in data) || data.announcement is map) &&
+        (!('primaryColor' in data) || (data.primaryColor is string && data.primaryColor.size() <= 50)) &&
+        (!('secondaryColor' in data) || (data.secondaryColor is string && data.secondaryColor.size() <= 50)) &&
+        (!('facebookUrl' in data) || (data.facebookUrl is string && data.facebookUrl.size() <= 500)) &&
+        (!('youtubeUrl' in data) || (data.youtubeUrl is string && data.youtubeUrl.size() <= 500)) &&
+        (!('telegramUrl' in data) || (data.telegramUrl is string && data.telegramUrl.size() <= 500)) &&
+        (!('email' in data) || (data.email is string && data.email.size() <= 200)) &&
+        (!('address' in data) || (data.address is string && data.address.size() <= 500)) &&
+        (!('updatedAt' in data) || (data.updatedAt is number && data.updatedAt > 0));
+    }
+
+    function isValidHomepageSection(data) {
+      return data.type is string && data.type.size() > 0 && data.type.size() <= 50 &&
+        data.enabled is bool &&
+        data.sortOrder is number &&
+        (!('title' in data) || (data.title is string && data.title.size() <= 200)) &&
+        (!('subtitle' in data) || (data.subtitle is string && data.subtitle.size() <= 500)) &&
+        (!('productIds' in data) || (data.productIds is list && data.productIds.size() <= 100)) &&
+        (!('categoryIds' in data) || (data.categoryIds is list && data.categoryIds.size() <= 50));
+    }
+
+    function isValidBenefit(data) {
+      return data.icon is string && data.icon.size() > 0 && data.icon.size() <= 50 &&
+        data.title is string && data.title.size() > 0 && data.title.size() <= 150 &&
+        data.description is string && data.description.size() <= 500 &&
+        data.active is bool &&
+        data.sortOrder is number;
+    }
+
+    function isValidCampaign(data) {
+      return data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+        (!('subtitle' in data) || (data.subtitle is string && data.subtitle.size() <= 500)) &&
+        data.productIds is list && data.productIds.size() <= 100 &&
+        data.startAt is number &&
+        data.endAt is number &&
+        data.active is bool;
+    }
+
+    function isValidOrder(data) {
+      return data.customerName is string && data.customerName.size() > 0 && data.customerName.size() <= 150 &&
+        data.customerPhone is string && data.customerPhone.size() > 0 && data.customerPhone.size() <= 30 &&
+        (!('customerAddress' in data) || (data.customerAddress is string && data.customerAddress.size() <= 500)) &&
+        (!('note' in data) || (data.note is string && data.note.size() <= 1000)) &&
+        data.items is list && data.items.size() > 0 && data.items.size() <= 100 &&
+        data.total is number && data.total >= 0 &&
+        data.status in ['pending', 'confirmed', 'completed', 'cancelled'] &&
+        data.createdAt is number && data.createdAt > 0;
+    }
+
+    // 4. Collection Rules
+    // Products: Public can read, only Admin can create/update/delete
+    match /products/{productId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidId(productId) && isValidProduct(request.resource.data);
+      allow update: if isAdmin() && isValidId(productId) && isValidProduct(request.resource.data);
+      allow delete: if isAdmin() && isValidId(productId);
+    }
+
+    // Categories: Public can read, only Admin can create/update/delete
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidId(categoryId) && isValidCategory(request.resource.data);
+      allow update: if isAdmin() && isValidId(categoryId) && isValidCategory(request.resource.data);
+      allow delete: if isAdmin() && isValidId(categoryId);
+    }
+
+    // Settings (e.g. settings/store): Public can read, only Admin can create/update/delete
+    match /settings/{settingId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidId(settingId) && isValidSettings(request.resource.data);
+      allow update: if isAdmin() && isValidId(settingId) && isValidSettings(request.resource.data);
+      allow delete: if isAdmin() && isValidId(settingId);
+    }
+
+    // Homepage blocks: Public can read, only Admin can write
+    match /homepage/{sectionId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidId(sectionId) && isValidHomepageSection(request.resource.data);
+      allow update: if isAdmin() && isValidId(sectionId) && isValidHomepageSection(request.resource.data);
+      allow delete: if isAdmin() && isValidId(sectionId);
+    }
+
+    // Benefits: Public can read, only Admin can write
+    match /benefits/{benefitId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidId(benefitId) && isValidBenefit(request.resource.data);
+      allow update: if isAdmin() && isValidId(benefitId) && isValidBenefit(request.resource.data);
+      allow delete: if isAdmin() && isValidId(benefitId);
+    }
+
+    // Campaigns: Public can read, only Admin can write
+    match /campaigns/{campaignId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidId(campaignId) && isValidCampaign(request.resource.data);
+      allow update: if isAdmin() && isValidId(campaignId) && isValidCampaign(request.resource.data);
+      allow delete: if isAdmin() && isValidId(campaignId);
+    }
+
+    // Orders: Customer can create single validated order, ONLY Admin can read, update, or delete
+    match /orders/{orderId} {
+      allow create: if isValidId(orderId) && isValidOrder(request.resource.data);
+      allow read, update, delete: if isAdmin() && isValidId(orderId);
+    }
+
+    // Activity Logs: Visitors can log activities, Admin can read & delete logs
+    match /activity_logs/{logId} {
+      allow create: if isValidId(logId) &&
+        request.resource.data.type is string &&
+        request.resource.data.title is string &&
+        request.resource.data.timestamp is number;
+      allow read, delete: if true;
+    }
+  }
+}

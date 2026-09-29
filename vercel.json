@@ -1,0 +1,33 @@
+{
+  "version": 2,
+  "rewrites": [
+    {
+      "source": "/api/payment/create",
+      "destination": "/api/payment/create"
+    },
+    {
+      "source": "/api/payment/callback",
+      "destination": "/api/payment/callback"
+    },
+    {
+      "source": "/api/payment/verify",
+      "destination": "/api/payment/verify"
+    },
+    {
+      "source": "/modules/gateways/callback/jonotapay.php",
+      "destination": "/api/payment/callback"
+    },
+    {
+      "source": "/modules/gateways/callback/paybd.php",
+      "destination": "/api/payment/callback"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

@@ -1,0 +1,177 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "A digital or physical product sold on Nasir Digital Hub",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 300, "description": "Product title" },
+        "slug": { "type": "string", "maxLength": 300, "pattern": "^[a-z0-9-]+$", "description": "URL friendly slug" },
+        "categoryId": { "type": "string", "maxLength": 128, "description": "Associated Category ID" },
+        "description": { "type": "string", "maxLength": 25000, "description": "Full product description" },
+        "shortDescription": { "type": "string", "maxLength": 2000, "description": "Short brief description" },
+        "imageUrl": { "type": "string", "maxLength": 2000, "description": "Primary product image HTTPS URL" },
+        "gallery": { "type": "array", "description": "Optional additional image URLs" },
+        "price": { "type": "number", "description": "Current selling price in BDT" },
+        "oldPrice": { "type": "number", "description": "Original strike-through price" },
+        "available": { "type": "boolean", "description": "Whether the product is currently in stock/available" },
+        "featured": { "type": "boolean", "description": "Featured on homepage spotlight" },
+        "newArrival": { "type": "boolean", "description": "Marked as new arrival" },
+        "rating": { "type": "number", "description": "Average rating out of 5" },
+        "reviewCount": { "type": "number", "description": "Total reviews count" },
+        "type": { "type": "string", "enum": ["physical", "digital"], "description": "Product type" },
+        "isFree": { "type": "boolean", "description": "Whether the product can be downloaded for free without any payment" },
+        "downloadUrl": { "type": "string", "maxLength": 2000, "description": "Digital download or access link" },
+        "livePreviewEnabled": { "type": "boolean", "description": "Whether Live Preview button is enabled for Web Script or Template" },
+        "livePreviewUrl": { "type": "string", "maxLength": 2000, "description": "Live Preview URL for Web Script or Template demo" },
+        "tags": { "type": "array", "description": "Search keyword tags" },
+        "createdAt": { "type": "number", "description": "Creation unix timestamp" },
+        "updatedAt": { "type": "number", "description": "Last updated unix timestamp" }
+      },
+      "required": ["title", "slug", "categoryId", "description", "imageUrl", "price", "available", "featured", "type", "createdAt"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Product Category for grouping digital assets",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "maxLength": 150, "description": "Category Name in Bengali or English" },
+        "slug": { "type": "string", "maxLength": 150, "pattern": "^[a-z0-9-]+$", "description": "URL friendly slug" },
+        "description": { "type": "string", "maxLength": 2000, "description": "Category brief summary" },
+        "imageUrl": { "type": "string", "maxLength": 2000, "description": "Category banner or thumbnail image URL" },
+        "sortOrder": { "type": "number", "description": "Display order" },
+        "active": { "type": "boolean", "description": "Whether category is active" },
+        "createdAt": { "type": "number", "description": "Creation timestamp" }
+      },
+      "required": ["name", "slug", "active", "createdAt"]
+    },
+    "StoreSettings": {
+      "title": "StoreSettings",
+      "description": "Global settings for Nasir Digital Hub store",
+      "type": "object",
+      "properties": {
+        "websiteName": { "type": "string", "maxLength": 150 },
+        "description": { "type": "string", "maxLength": 5000 },
+        "tagline": { "type": "string", "maxLength": 300 },
+        "whatsappNumber": { "type": "string", "maxLength": 50 },
+        "deliveryCharge": { "type": "number" },
+        "logoUrl": { "type": "string", "maxLength": 2000 },
+        "faviconUrl": { "type": "string", "maxLength": 2000 },
+        "heroMediaUrl": { "type": "string", "maxLength": 2000 },
+        "heroMediaType": { "type": "string", "enum": ["video", "image"] },
+        "heroHeadline": { "type": "string", "maxLength": 300 },
+        "heroSubtitle": { "type": "string", "maxLength": 1000 },
+        "heroBadge": { "type": "string", "maxLength": 100 },
+        "heroPrimaryCtaText": { "type": "string", "maxLength": 100 },
+        "heroPrimaryCtaLink": { "type": "string", "maxLength": 200 },
+        "heroSecondaryCtaText": { "type": "string", "maxLength": 100 },
+        "heroSecondaryCtaLink": { "type": "string", "maxLength": 200 },
+        "heroAutoSlide": { "type": "boolean" },
+        "heroSlideInterval": { "type": "number" },
+        "heroSlides": { "type": "array" },
+        "announcement": { "type": "object" },
+        "heroProductIds": { "type": "object" },
+        "primaryColor": { "type": "string", "maxLength": 50 },
+        "secondaryColor": { "type": "string", "maxLength": 50 },
+        "facebookUrl": { "type": "string", "maxLength": 500 },
+        "youtubeUrl": { "type": "string", "maxLength": 500 },
+        "telegramUrl": { "type": "string", "maxLength": 500 },
+        "email": { "type": "string", "maxLength": 200 },
+        "address": { "type": "string", "maxLength": 500 },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["websiteName", "whatsappNumber"]
+    },
+    "HomepageSection": {
+      "title": "HomepageSection",
+      "description": "Configuration for customizable homepage blocks",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "maxLength": 50 },
+        "title": { "type": "string", "maxLength": 200 },
+        "subtitle": { "type": "string", "maxLength": 500 },
+        "enabled": { "type": "boolean" },
+        "sortOrder": { "type": "number" },
+        "productIds": { "type": "array" },
+        "categoryIds": { "type": "array" }
+      },
+      "required": ["type", "enabled", "sortOrder"]
+    },
+    "Benefit": {
+      "title": "Benefit",
+      "description": "Why choose us service benefit card",
+      "type": "object",
+      "properties": {
+        "icon": { "type": "string", "maxLength": 50 },
+        "title": { "type": "string", "maxLength": 150 },
+        "description": { "type": "string", "maxLength": 500 },
+        "active": { "type": "boolean" },
+        "sortOrder": { "type": "number" }
+      },
+      "required": ["icon", "title", "description", "active", "sortOrder"]
+    },
+    "Campaign": {
+      "title": "Campaign",
+      "description": "Weekly highlights or flash deal campaigns",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 200 },
+        "subtitle": { "type": "string", "maxLength": 500 },
+        "productIds": { "type": "array" },
+        "startAt": { "type": "number" },
+        "endAt": { "type": "number" },
+        "active": { "type": "boolean" }
+      },
+      "required": ["title", "productIds", "startAt", "endAt", "active"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Customer purchase order logged for records",
+      "type": "object",
+      "properties": {
+        "customerName": { "type": "string", "maxLength": 150 },
+        "customerPhone": { "type": "string", "maxLength": 30 },
+        "customerAddress": { "type": "string", "maxLength": 500 },
+        "note": { "type": "string", "maxLength": 1000 },
+        "items": { "type": "array" },
+        "subtotal": { "type": "number" },
+        "deliveryCharge": { "type": "number" },
+        "total": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "completed", "cancelled"] },
+        "paymentMethod": { "type": "string", "maxLength": 50 },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["customerName", "customerPhone", "items", "total", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Store products catalogue"
+    },
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Product category taxonomy"
+    },
+    "/settings/{settingId}": {
+      "schema": "StoreSettings",
+      "description": "Global store and homepage settings (e.g. 'store')"
+    },
+    "/homepage/{sectionId}": {
+      "schema": "HomepageSection",
+      "description": "Homepage dynamic block arrangements"
+    },
+    "/benefits/{benefitId}": {
+      "schema": "Benefit",
+      "description": "Why choose us service points"
+    },
+    "/campaigns/{campaignId}": {
+      "schema": "Campaign",
+      "description": "Promotional and weekly highlight deals"
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Customer orders logged during checkout"
+    }
+  }
+}
