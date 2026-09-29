@@ -23,8 +23,7 @@ export interface OrderDeliveryEmailData {
 }
 
 /**
- * Normalizes an image/logo URL for 100% email client compatibility (Gmail, Outlook, Yahoo, Apple Mail).
- * Strips data URIs and resolves relative paths to absolute HTTPS URLs.
+ * Normalizes an image/logo URL for 100% email client compatibility.
  */
 function resolveEmailImageUrl(url: string | undefined, baseUrl: string, fallbackUrl: string): string {
   if (!url || typeof url !== 'string') return fallbackUrl;
@@ -44,7 +43,6 @@ export function generateOrderDeliveryEmailHtml(data: OrderDeliveryEmailData): st
     amount,
     paymentMethod = 'Online Payment',
     items = [],
-    logoUrl,
     websiteUrl = 'https://nasirdigitalhub.pipilikhost.com',
     whatsappNumber = '01962780922',
   } = data;
@@ -59,13 +57,8 @@ export function generateOrderDeliveryEmailHtml(data: OrderDeliveryEmailData): st
     `আসসালামু আলাইকুম! আমার অর্ডার #${orderId} সংক্রান্ত সহযোগিতা প্রয়োজন।`
   )}`;
 
-  // Guaranteed public HTTPS hosted brand logo & category banners
-  const fallbackBrandLogo =
-    'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=240&auto=format&fit=crop&q=80';
   const defaultProductBanner =
     'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80';
-
-  const validLogoUrl = resolveEmailImageUrl(logoUrl, websiteUrl, '');
 
   const itemsHtml = items
     .map((item, index) => {
@@ -90,8 +83,8 @@ export function generateOrderDeliveryEmailHtml(data: OrderDeliveryEmailData): st
       <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 22px; background-color: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 18px; overflow: hidden; box-shadow: 0 4px 8px -2px rgba(0, 0, 0, 0.06);">
         <!-- Product Banner Image Row -->
         <tr>
-          <td style="padding: 0; background-color: #0f172a; text-align: center;">
-            <img src="${itemBannerUrl}" alt="${item.title}" width="100%" style="width: 100%; max-height: 200px; object-fit: cover; display: block; border-bottom: 3px solid #10b981;" />
+          <td style="padding: 0; background-color: #030814; text-align: center;">
+            <img src="${itemBannerUrl}" alt="${item.title}" width="100%" style="width: 100%; max-height: 200px; object-fit: cover; display: block; border-bottom: 3px solid #00d2ff;" />
           </td>
         </tr>
         <!-- Product Content Body -->
@@ -106,7 +99,7 @@ export function generateOrderDeliveryEmailHtml(data: OrderDeliveryEmailData): st
 
             <div style="font-size: 13px; color: #64748b; margin-bottom: 16px; background: #f8fafc; padding: 6px 14px; border-radius: 8px; display: inline-block; border: 1px solid #e2e8f0;">
               পরিমাণ: <strong style="color: #0f172a;">${item.quantity || 1} টি</strong> &nbsp;|&nbsp; 
-              মূল্য: <strong style="color: #059669;">${item.price} ৳</strong>
+              মূল্য: <strong style="color: #0284c7;">${item.price} ৳</strong>
             </div>
 
             <!-- Download & Access Link Box -->
@@ -119,12 +112,12 @@ export function generateOrderDeliveryEmailHtml(data: OrderDeliveryEmailData): st
                 finalDownloadUrl
                   ? `
                 <div style="margin-bottom: 12px;">
-                  <a href="${finalDownloadUrl}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #059669 0%, #047857 100%); color: #ffffff; text-decoration: none; padding: 13px 26px; border-radius: 12px; font-weight: 800; font-size: 14px; box-shadow: 0 4px 12px rgba(5,150,105,0.35); text-align: center;">
+                  <a href="${finalDownloadUrl}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #0284c7 0%, #0369a1 50%, #059669 100%); color: #ffffff; text-decoration: none; padding: 13px 26px; border-radius: 12px; font-weight: 800; font-size: 14px; box-shadow: 0 4px 14px rgba(2,132,199,0.35); text-align: center;">
                     📥 এক্সেস লিংক / ফাইল ডাউনলোড করুন
                   </a>
                 </div>
                 <div style="font-size: 12px; color: #15803d; word-break: break-all; background: #ffffff; padding: 10px 14px; border-radius: 8px; border: 1px dashed #4ade80; line-height: 1.5;">
-                  <strong>সরাসরি লিঙ্ক:</strong> <a href="${finalDownloadUrl}" target="_blank" style="color: #047857; font-weight: 700; text-decoration: underline;">${finalDownloadUrl}</a>
+                  <strong>সরাসরি লিঙ্ক:</strong> <a href="${finalDownloadUrl}" target="_blank" style="color: #0369a1; font-weight: 700; text-decoration: underline;">${finalDownloadUrl}</a>
                 </div>
                 `
                   : `
@@ -138,7 +131,7 @@ export function generateOrderDeliveryEmailHtml(data: OrderDeliveryEmailData): st
                 finalPreviewUrl
                   ? `
                 <div style="margin-top: 12px; font-size: 12px;">
-                  <a href="${finalPreviewUrl}" target="_blank" style="color: #2563eb; text-decoration: underline; font-weight: 700;">
+                  <a href="${finalPreviewUrl}" target="_blank" style="color: #0284c7; text-decoration: underline; font-weight: 700;">
                     🔗 লাইভ ডেমো / প্রিভিউ পেজ দেখুন &rarr;
                   </a>
                 </div>
@@ -167,47 +160,50 @@ export function generateOrderDeliveryEmailHtml(data: OrderDeliveryEmailData): st
     <tr>
       <td align="center">
         <!-- Main Card Container -->
-        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0;">
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.12); border: 1px solid #e2e8f0;">
           
-          <!-- Top Header with Website Main Brand Favicon & Logo -->
+          <!-- Top Header with Authentic Circular Neon Blue Logo Badge -->
           <tr>
-            <td style="background: linear-gradient(135deg, #022c22 0%, #064e3b 45%, #0f172a 100%); padding: 36px 24px; text-align: center; color: #ffffff;">
+            <td style="background: radial-gradient(circle at top, #0b1b38 0%, #050d1e 60%, #02060f 100%); padding: 38px 24px; text-align: center; color: #ffffff;">
               
-              <!-- 1. Indestructible Pure HTML/CSS Brand Lockup (100% Reliable in Gmail, Outlook, Yahoo) -->
+              <!-- 1. Official Nasir Digital Hub Circular Cyber Emblem -->
               <table border="0" cellspacing="0" cellpadding="0" align="center" style="margin: 0 auto 16px auto;">
                 <tr>
                   <td align="center">
                     
-                    <table border="0" cellspacing="0" cellpadding="0" align="center" style="background: #0f172a; border-radius: 20px; border: 2px solid #34d399; box-shadow: 0 10px 28px rgba(5,150,105,0.45); padding: 12px 24px;">
+                    <!-- Circular Glowing Neon Cyber Shield -->
+                    <table border="0" cellspacing="0" cellpadding="0" align="center" style="width: 140px; height: 140px; border-radius: 50%; background: radial-gradient(circle, #0b1b38 0%, #030814 100%); border: 3px solid #00d2ff; box-shadow: 0 0 30px rgba(0, 210, 255, 0.6); margin: 0 auto;">
                       <tr>
-                        <!-- 3D Geometric Brand Icon Emblem / Favicon -->
-                        <td style="vertical-align: middle; padding-right: 14px;">
-                          <table border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto;">
-                            <tr>
-                              <td align="center" valign="middle" style="width: 48px; height: 48px; background: linear-gradient(135deg, #0ea5e9 0%, #059669 100%); border-radius: 14px; text-align: center; border: 2px solid #67e8f9; box-shadow: 0 4px 12px rgba(14,165,233,0.5);">
-                                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 26px; font-weight: 900; color: #ffffff; line-height: 48px; text-align: center; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">
-                                  N
-                                </div>
-                              </td>
-                            </tr>
-                          </table>
-                        </td>
-                        <!-- Brand Typography -->
-                        <td style="vertical-align: middle; text-align: left;">
-                          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 22px; font-weight: 900; color: #ffffff; letter-spacing: -0.5px; line-height: 1.1; margin: 0;">
-                            Nasir Digital Hub
+                        <td align="center" valign="middle" style="padding: 10px;">
+                          
+                          <!-- 3D Monogram Lockup -->
+                          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 32px; font-weight: 900; line-height: 1; letter-spacing: -1px; text-align: center;">
+                            <span style="color: #ffffff; text-shadow: 0 2px 8px rgba(0,0,0,0.8);">N</span><span style="color: #38bdf8; text-shadow: 0 0 12px rgba(56,189,248,0.8);">D</span>
                           </div>
-                          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 10px; font-weight: 800; color: #34d399; letter-spacing: 1.2px; text-transform: uppercase; margin-top: 4px;">
-                            Premium Digital Marketplace
+
+                          <!-- "NASIR" Metallic Chrome Text -->
+                          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 15px; font-weight: 900; color: #ffffff; letter-spacing: 2px; line-height: 1.1; margin-top: 4px; text-shadow: 0 2px 6px rgba(0,0,0,0.9);">
+                            NASIR
                           </div>
+
+                          <!-- "DIGITAL HUB" Electric Cyan Text -->
+                          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 9px; font-weight: 900; color: #00e5ff; letter-spacing: 2px; text-transform: uppercase; margin-top: 2px; text-shadow: 0 0 8px rgba(0,229,255,0.8);">
+                            DIGITAL HUB
+                          </div>
+
+                          <!-- Circuit Node Indicator -->
+                          <div style="margin-top: 5px; font-size: 8px; color: #38bdf8;">
+                            ── ● ──
+                          </div>
+
                         </td>
                       </tr>
                     </table>
 
                     <!-- Official Verification Sub-badge -->
-                    <div style="margin-top: 12px;">
-                      <span style="display: inline-block; background: rgba(52, 211, 153, 0.18); border: 1px solid rgba(52, 211, 153, 0.4); border-radius: 9999px; padding: 4px 14px; font-size: 10px; font-weight: 800; color: #a7f3d0; letter-spacing: 0.6px; text-transform: uppercase;">
-                        🛡️ Verified Official Digital Product Delivery
+                    <div style="margin-top: 14px;">
+                      <span style="display: inline-block; background: rgba(0, 210, 255, 0.15); border: 1px solid rgba(0, 210, 255, 0.45); border-radius: 9999px; padding: 5px 16px; font-size: 10px; font-weight: 800; color: #67e8f9; letter-spacing: 0.8px; text-transform: uppercase; box-shadow: 0 0 12px rgba(0,210,255,0.2);">
+                        🛡️ Nasir Digital Hub Official Delivery
                       </span>
                     </div>
                   </td>
@@ -247,7 +243,7 @@ export function generateOrderDeliveryEmailHtml(data: OrderDeliveryEmailData): st
                 </tr>
                 <tr>
                   <td style="font-size: 13px; color: #64748b;">
-                    <strong>💰 মোট পরিশোধিত:</strong> <span style="color: #059669; font-weight: 800; font-size: 16px;">${amount} ৳</span>
+                    <strong>💰 মোট পরিশোধিত:</strong> <span style="color: #0284c7; font-weight: 800; font-size: 16px;">${amount} ৳</span>
                   </td>
                   <td style="font-size: 13px; color: #64748b; text-align: right;">
                     <strong>⚡ পেমেন্ট মেথড:</strong> <span style="color: #0f172a; font-weight: 700;">${paymentMethod}</span>
@@ -260,7 +256,7 @@ export function generateOrderDeliveryEmailHtml(data: OrderDeliveryEmailData): st
           <!-- Digital Products Section -->
           <tr>
             <td style="padding: 0 24px 8px 24px;">
-              <div style="font-size: 14px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px; border-left: 4px solid #059669; padding-left: 10px;">
+              <div style="font-size: 14px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px; border-left: 4px solid #00d2ff; padding-left: 10px;">
                 🛍️ অর্ডারকৃত প্রোডাক্ট ও এক্সেস লিঙ্কসমূহ
               </div>
 
@@ -308,7 +304,7 @@ export function generateOrderDeliveryEmailHtml(data: OrderDeliveryEmailData): st
 
           <!-- Email Footer -->
           <tr>
-            <td style="background-color: #0f172a; padding: 24px; text-align: center; color: #94a3b8; font-size: 12px; border-top: 1px solid #1e293b;">
+            <td style="background-color: #030814; padding: 24px; text-align: center; color: #94a3b8; font-size: 12px; border-top: 1px solid #0f172a;">
               <p style="margin: 0 0 6px 0; font-weight: 700; color: #cbd5e1; font-size: 13px;">
                 Nasir Digital Hub — প্রিমিয়াম ডিজিটাল প্রোডাক্ট ও সফটওয়্যার মার্কেটপ্লেস
               </p>
