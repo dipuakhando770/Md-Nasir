@@ -1,6 +1,6 @@
 import { OrderItem } from '../types';
 import { db } from '../firebase/config';
-import { doc, getDoc, collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, query, where, getDocs, limit } from 'firebase/firestore';
 
 export interface LocalUserOrder {
   orderId: string;
@@ -102,21 +102,36 @@ export function getUserCartHistory(): LocalCartActivity[] {
 }
 
 export function saveUserCartActivity(activity: Omit<LocalCartActivity, 'id' | 'timestamp'>): void {
-  if (typeof window === 'undefined') return;
+  const timestamp = Date.now();
+  const rawId = `cart_${timestamp}_${Math.random().toString(36).slice(2, 7)}`;
+  const newActivity: LocalCartActivity = {
+    id: rawId,
+    timestamp,
+    ...activity,
+  };
+
+  // 1. Save to Local Storage for instant offline access
+  if (typeof window !== 'undefined') {
+    try {
+      const existing = getUserCartHistory();
+      const filtered = existing.filter((a) => a.productId !== activity.productId);
+      const updated = [newActivity, ...filtered].slice(0, 50);
+      localStorage.setItem(USER_CART_HISTORY_STORAGE_KEY, JSON.stringify(updated));
+      window.dispatchEvent(new CustomEvent('ndh_user_cart_history_updated'));
+    } catch (err) {
+      console.warn('Failed to save local cart activity:', err);
+    }
+  }
+
+  // 2. Persist directly to Firebase Firestore
   try {
-    const existing = getUserCartHistory();
-    const newActivity: LocalCartActivity = {
-      id: `act_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-      timestamp: Date.now(),
-      ...activity,
-    };
-    // Keep unique recent products or prioritize newest
-    const filtered = existing.filter((a) => a.productId !== activity.productId);
-    const updated = [newActivity, ...filtered].slice(0, 30);
-    localStorage.setItem(USER_CART_HISTORY_STORAGE_KEY, JSON.stringify(updated));
-    window.dispatchEvent(new CustomEvent('ndh_user_cart_history_updated'));
-  } catch (err) {
-    console.warn('Failed to save cart activity:', err);
+    const docRef = doc(db, 'cart_activities', rawId);
+    setDoc(docRef, {
+      ...newActivity,
+      createdAt: timestamp,
+    }, { merge: true }).catch((e) => console.warn('Firestore cart activity notice:', e));
+  } catch (e) {
+    console.warn('Firestore cart activity trigger notice:', e);
   }
 }
 

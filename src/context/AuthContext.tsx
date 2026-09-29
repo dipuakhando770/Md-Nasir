@@ -36,7 +36,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isAdmin = Boolean(
     user &&
       (user.uid === ADMIN_UID ||
-        (user.email && user.email.toLowerCase() === 'mdnasirhassan3@gmail.com'))
+        (user.email &&
+          (user.email.toLowerCase() === 'mdnasirhassan365.01@gmail.com' ||
+            user.email.toLowerCase() === 'mdnasirhassan3@gmail.com' ||
+            user.email.toLowerCase() === 'nasirdigitalhub@pipilikhost.com' ||
+            user.email.toLowerCase().includes('mdnasirhassan'))))
   );
 
   const loginWithEmail = async (email: string, pass: string) => {
