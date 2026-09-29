@@ -76,6 +76,7 @@ export const OrdersManager: React.FC = () => {
   // Bulk selection state
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
+  const [isSeedingOrders, setIsSeedingOrders] = useState(false);
 
   useEffect(() => {
     const unsub = subscribeToOrders(
@@ -90,6 +91,24 @@ export const OrdersManager: React.FC = () => {
     );
     return () => unsub();
   }, []);
+
+  const handleSeedOrders = async () => {
+    setIsSeedingOrders(true);
+    try {
+      const { seedDemoOrders } = await import('../utils/seedData');
+      await seedDemoOrders();
+      setEmailDeliveryFeedback({
+        orderId: 'seed',
+        success: true,
+        message: '✅ সফলভাবে ৩টি ডেমো নমুনা অর্ডার (পেন্ডিং ও পেইড) তৈরি হয়েছে! এখন সরাসরি অ্যাপ্রুভ টেস্ট করুন।',
+      });
+    } catch (err: any) {
+      console.error('Seed orders error:', err);
+      alert('ডেমো অর্ডার যুক্ত করতে সমস্যা হয়েছে।');
+    } finally {
+      setIsSeedingOrders(false);
+    }
+  };
 
   const copyToClipboard = (text: string, fieldKey: string) => {
     navigator.clipboard.writeText(text);
@@ -594,6 +613,20 @@ export const OrdersManager: React.FC = () => {
           )}
 
           <button
+            onClick={handleSeedOrders}
+            disabled={isSeedingOrders}
+            className="px-3.5 py-2 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 hover:text-white border border-indigo-500/30 text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95 disabled:opacity-50"
+            title="পরীক্ষামূলক ডেমো অর্ডার তৈরি করুন"
+          >
+            {isSeedingOrders ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+            )}
+            <span>নমুনা অর্ডার লোড</span>
+          </button>
+
+          <button
             onClick={exportToCSV}
             className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-sm active:scale-95"
           >
@@ -855,10 +888,45 @@ export const OrdersManager: React.FC = () => {
                 </tr>
               ) : filteredOrders.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-20 text-slate-500 italic">
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <AlertCircle className="w-8 h-8 text-slate-600" />
-                      <span className="font-semibold">কোনো অর্ডার পাওয়া যায়নি। ফিল্টার পরিবর্তন করে দেখতে পারেন।</span>
+                  <td colSpan={7} className="text-center py-16 text-slate-400">
+                    <div className="flex flex-col items-center justify-center gap-3 max-w-md mx-auto">
+                      <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center">
+                        <ShoppingCart className="w-7 h-7" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-sm text-white">বর্তমানে প্রদর্শনের মতো কোনো অর্ডার পাওয়া যায়নি</h4>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {orders.length === 0
+                            ? 'ডাটাবেজে এখনো কোনো অর্ডার জমা হয়নি। আপনি এখনই পরীক্ষামূলক ডেমো অর্ডার তৈরি করে ম্যানুয়াল অনুমোদন টেস্ট করতে পারেন।'
+                            : 'বর্তমান ফিল্টার অনুযায়ী কোনো অর্ডার মিলেনি।'}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 pt-1">
+                        {orders.length === 0 ? (
+                          <button
+                            type="button"
+                            onClick={handleSeedOrders}
+                            disabled={isSeedingOrders}
+                            className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-indigo-600 hover:from-emerald-500 hover:to-indigo-500 text-white font-extrabold text-xs flex items-center gap-2 shadow-lg shadow-indigo-900/30 transition-all cursor-pointer"
+                          >
+                            <Sparkles className="w-4 h-4 text-amber-300" />
+                            <span>🔄 নমুনা ডেমো অর্ডার লোড করুন</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedStatusTab('all');
+                              setPaymentMethodFilter('all');
+                              setSearchTerm('');
+                            }}
+                            className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            <span>সকল ফিল্টার রিসেট করুন</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </td>
                 </tr>

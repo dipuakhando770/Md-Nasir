@@ -186,3 +186,92 @@ export async function seedInitialCatalog(): Promise<void> {
     sortOrder: 4,
   });
 }
+
+export async function seedDemoOrders(): Promise<void> {
+  const { createOrder } = await import('../firebase/services');
+  const now = Date.now();
+
+  const demoOrders = [
+    {
+      id: `ORD-${now.toString().slice(-6)}1`,
+      customerName: 'মোঃ রাশেদুল ইসলাম',
+      customerPhone: '01711223344',
+      customerEmail: 'rashed.dev@gmail.com',
+      customerAddress: 'ডিজিটাল ডেলিভারি (ঢাকা)',
+      note: 'Canva Pro সাবস্ক্রিপশন দ্রুত অ্যাক্টিভ করে দিন।',
+      items: [
+        {
+          productId: 'demo-1',
+          title: 'Canva Pro 1-Year Private / Team Access',
+          price: 350,
+          quantity: 1,
+          imageUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=400&q=80',
+          downloadUrl: 'https://canva.com/brand/join/invite-demo-link',
+        },
+      ],
+      subtotal: 350,
+      deliveryCharge: 0,
+      total: 350,
+      paymentMethod: 'PayBD Online (bKash/Nagad)',
+      paymentStatus: 'pending' as const,
+      status: 'pending' as const,
+      createdAt: now - 1000 * 60 * 15, // 15 mins ago
+    },
+    {
+      id: `ORD-${now.toString().slice(-6)}2`,
+      customerName: 'তানভীর আহমেদ',
+      customerPhone: '01864368912',
+      customerEmail: 'tanvir.ui@gmail.com',
+      customerAddress: 'চট্টগ্রাম',
+      note: 'উইন্ডোজ ১১ প্রো কী দ্রুত প্রয়োজন।',
+      items: [
+        {
+          productId: 'demo-2',
+          title: 'Windows 11 Pro Genuine Retail Lifetime Key',
+          price: 499,
+          quantity: 1,
+          imageUrl: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=400&q=80',
+          downloadUrl: 'https://nasirdigitalhub.com/keys/win11pro-demo',
+        },
+      ],
+      subtotal: 499,
+      deliveryCharge: 0,
+      total: 499,
+      paymentMethod: 'bKash Personal',
+      paymentStatus: 'pending' as const,
+      status: 'pending' as const,
+      paymentTrxId: '9K8J7H6G5F',
+      createdAt: now - 1000 * 60 * 45, // 45 mins ago
+    },
+    {
+      id: `ORD-${now.toString().slice(-6)}3`,
+      customerName: 'সাদিয়া তাসনিম',
+      customerPhone: '01912345678',
+      customerEmail: 'sadia.motion@gmail.com',
+      customerAddress: 'সিলেট',
+      note: 'মোশন গ্রাফিক্স বান্ডেল গুগল ড্রাইভ লিঙ্ক পাঠিয়ে দিন।',
+      items: [
+        {
+          productId: 'demo-3',
+          title: '500+ Mega Video Editing Motion Graphics Asset Bundle',
+          price: 299,
+          quantity: 1,
+          imageUrl: 'https://images.unsplash.com/photo-1626785774573-4b799315345d?auto=format&fit=crop&w=400&q=80',
+          downloadUrl: 'https://drive.google.com/drive/folders/demo-assets',
+        },
+      ],
+      subtotal: 299,
+      deliveryCharge: 0,
+      total: 299,
+      paymentMethod: 'Nagad',
+      paymentStatus: 'paid' as const,
+      status: 'completed' as const,
+      paymentTrxId: 'NAGAD-TRX-874210',
+      createdAt: now - 1000 * 60 * 180, // 3 hours ago
+    },
+  ];
+
+  for (const ord of demoOrders) {
+    await createOrder(ord as any);
+  }
+}

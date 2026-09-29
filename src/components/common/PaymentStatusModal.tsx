@@ -4,6 +4,7 @@ import confetti from 'canvas-confetti';
 import {
   CheckCircle2,
   XCircle,
+  Clock,
   ShieldCheck,
   Download,
   MessageCircle,
@@ -20,6 +21,7 @@ import {
   Mail,
   RefreshCw,
   ArrowRight,
+  AlertCircle,
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { formatPrice, sanitizeWhatsAppNumber } from '../../utils/formatters';
@@ -30,7 +32,7 @@ import { dispatchOrderDeliveryEmail } from '../../utils/clientEmailDelivery';
 
 export const PaymentStatusModal: React.FC = () => {
   const { settings, products } = useStore();
-  const [status, setStatus] = useState<'success' | 'cancel' | null>(null);
+  const [status, setStatus] = useState<'success' | 'pending' | 'cancel' | null>(null);
   const [orderId, setOrderId] = useState<string>('');
   const [transactionId, setTransactionId] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<string>('');
@@ -48,17 +50,17 @@ export const PaymentStatusModal: React.FC = () => {
   useEffect(() => {
     // Check URL parameters for payment response
     const params = new URLSearchParams(window.location.search);
-    const paymentParam = params.get('payment');
+    const paymentParam = (params.get('payment') || '').toLowerCase();
     const statusParam = (params.get('status') || '').toLowerCase();
     const orderIdParam = params.get('order_id') || params.get('orderId') || '';
     const trxParam = params.get('transactionId') || params.get('transaction_id') || '';
     const methodParam = params.get('paymentMethod') || params.get('method') || '';
     const amountParam = params.get('paymentAmount') || params.get('amount') || '';
 
+    // Only mark success if transaction was genuinely completed by gateway
     const isSuccess =
-      paymentParam === 'success' ||
-      statusParam === 'completed' ||
-      statusParam === 'success';
+      (statusParam === 'completed' || statusParam === 'success' || paymentParam === 'success') &&
+      Boolean(trxParam || statusParam === 'completed');
 
     const isCancel =
       paymentParam === 'cancel' ||
@@ -66,14 +68,21 @@ export const PaymentStatusModal: React.FC = () => {
       statusParam === 'cancel' ||
       statusParam === 'cancelled';
 
-    if (isSuccess || isCancel) {
-      setStatus(isSuccess ? 'success' : 'cancel');
+    const isPending =
+      paymentParam === 'verify' ||
+      paymentParam === 'pending' ||
+      statusParam === 'pending' ||
+      (paymentParam === 'success' && !isSuccess);
+
+    if (isSuccess || isCancel || isPending) {
+      const finalState = isSuccess ? 'success' : isCancel ? 'cancel' : 'pending';
+      setStatus(finalState);
       setOrderId(orderIdParam);
       setTransactionId(trxParam);
       setPaymentMethod(methodParam);
       setPaymentAmount(amountParam);
 
-      // Attempt to retrieve cached order items from session storage
+      // Retrieve cached order details
       let items: OrderItem[] = [];
       let cusName = '';
       let cusPhone = '';
@@ -95,7 +104,6 @@ export const PaymentStatusModal: React.FC = () => {
           if (parsed.customerEmail) cusEmail = parsed.customerEmail;
           if (parsed.customerAddress) cusAddress = parsed.customerAddress;
 
-          // If cusAddress contains an email address, extract it
           if (!cusEmail && cusAddress && cusAddress.includes('@')) {
             const emailMatch = cusAddress.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
             if (emailMatch) cusEmail = emailMatch[0];
@@ -105,7 +113,7 @@ export const PaymentStatusModal: React.FC = () => {
         console.warn('Could not read cached order:', err);
       }
 
-      // Enrich items with latest downloadUrl & livePreviewUrl from products if missing
+      // Enrich items with latest product details
       if (items.length > 0 && products.length > 0) {
         items = items.map((item) => {
           const matchedProd = products.find((p) => p.id === item.productId);
@@ -126,25 +134,42 @@ export const PaymentStatusModal: React.FC = () => {
       setCustomerAddress(cusAddress);
 
       if (orderIdParam) {
-        updateUserLocalOrderStatus(orderIdParam, {
-          paymentStatus: isSuccess ? 'completed' : 'failed',
-          status: isSuccess ? 'completed' : 'cancelled',
-          transactionId: trxParam || undefined,
-        });
+        if (finalState === 'success') {
+          updateUserLocalOrderStatus(orderIdParam, {
+            paymentStatus: 'completed',
+            status: 'completed',
+            transactionId: trxParam || undefined,
+          });
 
-        // Persist to Firestore live database
-        updateOrderStatus(
-          orderIdParam,
-          isSuccess ? 'completed' : 'cancelled',
-          isSuccess ? 'paid' : 'cancelled',
-          {
+          updateOrderStatus(orderIdParam, 'completed', 'paid', {
             paymentTrxId: trxParam || 'PayBD Online Verified',
             paymentMethod: methodParam || 'PayBD Online Gateway',
-          }
-        ).catch((err) => console.warn('Firestore order sync notice:', err));
+          }).catch((err) => console.warn('Firestore order sync notice:', err));
+        } else if (finalState === 'cancel') {
+          updateUserLocalOrderStatus(orderIdParam, {
+            paymentStatus: 'failed',
+            status: 'cancelled',
+          });
+
+          updateOrderStatus(orderIdParam, 'cancelled', 'cancelled', {
+            paymentMethod: methodParam || 'Cancelled Gateway Payment',
+          }).catch((err) => console.warn('Firestore order sync notice:', err));
+        } else {
+          // Keep as pending in Firestore & Local storage
+          updateUserLocalOrderStatus(orderIdParam, {
+            paymentStatus: 'pending',
+            status: 'pending',
+            transactionId: trxParam || undefined,
+          });
+
+          updateOrderStatus(orderIdParam, 'pending', 'pending', {
+            paymentTrxId: trxParam || undefined,
+            paymentMethod: methodParam || 'PayBD Online (Pending)',
+          }).catch((err) => console.warn('Firestore order sync notice:', err));
+        }
       }
 
-      if (isSuccess) {
+      if (finalState === 'success') {
         try {
           confetti({
             particleCount: 140,
@@ -153,7 +178,7 @@ export const PaymentStatusModal: React.FC = () => {
           });
         } catch {}
 
-        // 1. Dispatch Automated Hostinger Email Delivery (nasirdigitalhub@pipilikhost.com)
+        // Automated Hostinger Email Delivery
         if (cusEmail && cusEmail.includes('@')) {
           setEmailStatus('sending');
           dispatchOrderDeliveryEmail({
@@ -172,55 +197,12 @@ export const PaymentStatusModal: React.FC = () => {
                 setEmailStatus('sent');
               } else {
                 setEmailStatus('failed');
-                console.warn('Auto email notice:', result?.message || result?.error);
               }
             })
-            .catch((err) => {
-              console.warn('Email trigger error:', err);
+            .catch(() => {
               setEmailStatus('failed');
             });
         }
-
-        // Construct auto notification message for the merchant/customer WhatsApp
-        const merchantPhone = sanitizeWhatsAppNumber(settings.whatsappNumber || '01962780922');
-        const trackingRef = trxParam || orderIdParam || 'ORD-VERIFIED';
-        const productsSummaryList = items
-          .map((i, idx) => `${idx + 1}. ${i.title} (x${i.quantity}) - ${i.price}৳`)
-          .join('\n');
-        
-        const downloadLinksList = items
-          .filter((i) => i.downloadUrl && i.downloadUrl.trim())
-          .map((i) => `🔗 ${i.title}: ${i.downloadUrl}`)
-          .join('\n');
-
-        const fullNotifyText = encodeURIComponent(
-          `🎉 *নতুন অর্ডার পেমেন্ট সফল হয়েছে! (PayBD Online Success)*\n` +
-          `━━━━━━━━━━━━━━━━━━━━━━\n` +
-          `📦 *অর্ডার আইডি:* ${trackingRef}\n` +
-          `💳 *ট্রানজেকশন ID:* ${trxParam || 'PayBD Verified'}\n` +
-          `👤 *কাস্টমার:* ${cusName || 'অনলাইন কাস্টমার'}\n` +
-          `📱 *ফোন:* ${cusPhone || 'N/A'}\n` +
-          (cusEmail ? `📧 *ইমেইল:* ${cusEmail}\n` : '') +
-          (cusAddress ? `📍 *ঠিকানা:* ${cusAddress}\n` : '') +
-          `💰 *পরিশোধিত মূল্য:* ${amountParam || ''} ৳\n` +
-          `💳 *পেমেন্ট মাধ্যম:* ${methodParam || 'PayBD (bKash/Nagad/Rocket)'}\n\n` +
-          `🛍️ *অর্ডারকৃত পণ্যসমূহ:*\n${productsSummaryList || 'ডিজিটাল প্রোডাক্ট'}\n\n` +
-          (downloadLinksList ? `📥 *ডাউনলোড লিঙ্ক:*\n${downloadLinksList}\n\n` : '') +
-          `━━━━━━━━━━━━━━━━━━━━━━\n` +
-          `✅ পেমেন্ট সম্পন্ন হয়েছে ও ফাইল অ্যাক্সেস দেওয়া হয়েছে।`
-        );
-
-        const autoWhatsappUrl = `https://wa.me/${merchantPhone}?text=${fullNotifyText}`;
-
-        // Auto trigger WhatsApp notification after short delay
-        const timer = setTimeout(() => {
-          try {
-            window.open(autoWhatsappUrl, '_blank', 'noopener,noreferrer');
-            setWhatsappSent(true);
-          } catch {}
-        }, 1200);
-
-        return () => clearTimeout(timer);
       }
 
       // Clean query params from URL without reload
@@ -280,26 +262,26 @@ export const PaymentStatusModal: React.FC = () => {
   const productsSummaryList = orderItems
     .map((i, idx) => `${idx + 1}. ${i.title} (x${i.quantity}) - ${i.price}৳`)
     .join('\n');
-  
+
   const downloadLinksList = orderItems
     .filter((i) => i.downloadUrl && i.downloadUrl.trim())
     .map((i) => `🔗 ${i.title}: ${i.downloadUrl}`)
     .join('\n');
 
   const fullNotifyText = encodeURIComponent(
-    `🎉 *নতুন অর্ডার পেমেন্ট সফল হয়েছে! (PayBD Online Success)*\n` +
+    `📦 *অর্ডার অনুসন্ধান ও সহায়তা (Nasir Digital Hub)*\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `📦 *অর্ডার আইডি:* ${trackingRef}\n` +
-    `💳 *ট্রানজেকশন ID:* ${transactionId || 'PayBD Verified'}\n` +
+    `🔢 *অর্ডার আইডি:* ${orderId || 'N/A'}\n` +
+    (transactionId ? `💳 *ট্রানজেকশন ID:* ${transactionId}\n` : '') +
     `👤 *কাস্টমার:* ${customerName || 'অনলাইন কাস্টমার'}\n` +
     `📱 *ফোন:* ${customerPhone || 'N/A'}\n` +
-    (customerAddress ? `📍 *ঠিকানা/ইমেইল:* ${customerAddress}\n` : '') +
-    `💰 *পরিশোধিত মূল্য:* ${paymentAmount || ''} ৳\n` +
-    `💳 *পেমেন্ট মাধ্যম:* ${paymentMethod || 'PayBD (bKash/Nagad/Rocket)'}\n\n` +
-    `🛍️ *অর্ডারকৃত পণ্যসমূহ:*\n${productsSummaryList || 'ডিজিটাল প্রোডাক্ট'}\n\n` +
-    (downloadLinksList ? `📥 *ডাউনলোড লিঙ্ক:*\n${downloadLinksList}\n\n` : '') +
+    (customerEmail ? `📧 *ইমেইল:* ${customerEmail}\n` : '') +
+    (paymentAmount ? `💰 *মূল্য:* ${paymentAmount} ৳\n` : '') +
+    `🛍️ *পণ্যসমূহ:*\n${productsSummaryList || 'ডিজিটাল প্রোডাক্ট'}\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `✅ পেমেন্ট সম্পন্ন হয়েছে ও ফাইল অ্যাক্সেস দেওয়া হয়েছে।`
+    (status === 'success'
+      ? `✅ পেমেন্ট সম্পন্ন হয়েছে ও ফাইল অ্যাক্সেস দেওয়া হয়েছে।`
+      : `⏳ আসসালামু আলাইকুম! আমার অর্ডারটি যাচাই করে অনুমোদন (Approve) করার অনুরোধ করছি।`)
   );
 
   const whatsappUrl = `https://wa.me/${merchantPhone}?text=${fullNotifyText}`;
@@ -361,10 +343,10 @@ export const PaymentStatusModal: React.FC = () => {
                   </div>
                   <div>
                     <p className="font-bold text-white">
-                      WhatsApp নোটিফিকেশন পাঠানো হয়েছে
+                      অর্ডার সিঙ্ক সম্পন্ন হয়েছে
                     </p>
                     <p className="text-[11px] text-emerald-300">
-                      নির্ধারিত নম্বরে ({settings.whatsappNumber || '01962780922'}) সম্পূর্ণ অর্ডারের বিবরণ সিঙ্ক হয়েছে
+                      নির্ধারিত নম্বরে ({settings.whatsappNumber || '01962780922'}) অর্ডারের বিবরণ যুক্ত হয়েছে
                     </p>
                   </div>
                 </div>
@@ -378,73 +360,6 @@ export const PaymentStatusModal: React.FC = () => {
                   <Send className="w-3 h-3" />
                   <span>নোটিফিকেশন চ্যাট দেখুন</span>
                 </a>
-              </div>
-
-              {/* Automatic Hostinger Email Delivery Status Card */}
-              <div className="p-3.5 rounded-2xl bg-sky-500/10 border border-sky-500/25 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center shrink-0">
-                    <Mail className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <p className="font-bold text-white flex items-center gap-1.5 flex-wrap">
-                      <span>ইন্সট্যান্ট ইমেইল ডেলিভারি</span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 font-mono">
-                        nasirdigitalhub@pipilikhost.com
-                      </span>
-                    </p>
-                    <p className="text-[11px] text-sky-200 mt-0.5">
-                      {emailStatus === 'sent' ? (
-                        <span className="text-emerald-300 font-bold flex items-center gap-1">
-                          <Check className="w-3.5 h-3.5" /> আপনার ইমেইল ({customerEmail || emailInput})-এ সফলভাবে ফাইল লিঙ্ক পাঠানো হয়েছে!
-                        </span>
-                      ) : emailStatus === 'sending' ? (
-                        <span className="text-sky-300 animate-pulse flex items-center gap-1">
-                          <RefreshCw className="w-3 h-3 animate-spin" /> ইমেইল ইনবক্সে পাঠানো হচ্ছে...
-                        </span>
-                      ) : (
-                        <span>প্রোডাক্ট লাইসেন্স ও ডাউনলোড লিঙ্ক আপনার ইমেইল ইনবক্সে পাঠানো হয়েছে</span>
-                      )}
-                    </p>
-                  </div>
-                </div>
-
-                <form onSubmit={handleManualEmailSend} className="flex items-center gap-1.5 w-full sm:w-auto">
-                  <input
-                    type="email"
-                    placeholder="আপনার ইমেইল লিখুন..."
-                    value={emailInput}
-                    onChange={(e) => setEmailInput(e.target.value)}
-                    className="bg-slate-950/90 border border-sky-500/30 rounded-lg px-2.5 py-1 text-[11px] text-white focus:outline-none focus:border-sky-400 w-full sm:w-44"
-                  />
-                  <button
-                    type="submit"
-                    disabled={emailStatus === 'sending'}
-                    className="px-3 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-[11px] font-bold shadow transition-all shrink-0 cursor-pointer disabled:opacity-50"
-                  >
-                    {emailStatus === 'sending' ? 'পাঠানো হচ্ছে...' : emailStatus === 'sent' ? 'পুনরায় পাঠান' : 'ইমেইল পাঠান'}
-                  </button>
-                </form>
-              </div>
-
-              {/* Order & Transaction Quick Receipt */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800 text-xs">
-                <div className="space-y-0.5">
-                  <span className="text-[10px] text-slate-400">অর্ডার নম্বর:</span>
-                  <p className="font-mono font-bold text-white truncate">{orderId || 'ORD-VERIFIED'}</p>
-                </div>
-                <div className="space-y-0.5">
-                  <span className="text-[10px] text-slate-400">ট্রানজেকশন আইডি:</span>
-                  <p className="font-mono font-bold text-emerald-400 truncate">{transactionId || 'N/A'}</p>
-                </div>
-                <div className="space-y-0.5">
-                  <span className="text-[10px] text-slate-400">পরিশোধিত মূল্য:</span>
-                  <p className="font-black text-white">{paymentAmount ? `${paymentAmount} ৳` : 'পরিশোধিত'}</p>
-                </div>
-                <div className="space-y-0.5">
-                  <span className="text-[10px] text-slate-400">পেমেন্ট মেথড:</span>
-                  <p className="font-bold text-slate-300 uppercase">{paymentMethod || 'PayBD Online'}</p>
-                </div>
               </div>
 
               {/* Purchased Products & Instant Download Section */}
@@ -593,6 +508,69 @@ export const PaymentStatusModal: React.FC = () => {
                 </button>
               </div>
             </>
+          ) : status === 'pending' ? (
+            <>
+              {/* Payment Pending / Unverified State */}
+              <div className="text-center space-y-3 pt-2">
+                <div className="w-16 h-16 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center mx-auto ring-8 ring-amber-500/10 shadow-lg shadow-amber-500/20">
+                  <Clock className="w-9 h-9 animate-pulse" />
+                </div>
+
+                <div className="space-y-1">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-500/15 text-amber-300 text-xs font-black border border-amber-500/30">
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>পেমেন্ট ও অর্ডার অপেক্ষমাণ (Pending Verification)</span>
+                  </div>
+                  <h2 className="text-2xl font-black text-white tracking-tight">
+                    আপনার অর্ডারটি অপেক্ষমাণ অবস্থায় রয়েছে
+                  </h2>
+                  <p className="text-xs text-slate-300 max-w-md mx-auto leading-relaxed">
+                    অর্ডার আইডি: <strong className="text-amber-400 font-mono">{orderId || 'ORD-PENDING'}</strong>। আপনার পেমেন্টটি যাচাইকরণ বা অ্যাডমিনের ম্যানুয়াল অনুমোদনের অপেক্ষায় আছে।
+                  </p>
+                </div>
+              </div>
+
+              {/* Order Info Card */}
+              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2.5 text-xs text-slate-300">
+                <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
+                  <span className="text-slate-400">অর্ডার স্ট্যাটাস:</span>
+                  <span className="font-bold text-amber-400 px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">
+                    ⏳ অপেক্ষমাণ (Pending)
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
+                  <span className="text-slate-400">প্রদেয় মূল্য:</span>
+                  <span className="font-bold text-white">{paymentAmount ? `${paymentAmount} ৳` : 'অর্ডার অনুযায়ী'}</span>
+                </div>
+                {customerPhone && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">মোবাইল নম্বর:</span>
+                    <span className="font-bold text-slate-200">{customerPhone}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col gap-2.5 pt-2">
+                <a
+                  href={whatsappUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-3.5 px-4 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white font-extrabold text-xs shadow-lg shadow-green-900/30 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                >
+                  <MessageCircle className="w-4 h-4 fill-white" />
+                  <span>WhatsApp এ অর্ডার অ্যাপ্রুভ / কনফার্ম করিয়ে নিন</span>
+                </a>
+
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition-colors cursor-pointer"
+                >
+                  উইন্ডো বন্ধ করুন
+                </button>
+              </div>
+            </>
           ) : (
             <>
               {/* Payment Cancelled State */}
@@ -602,31 +580,31 @@ export const PaymentStatusModal: React.FC = () => {
                 </div>
 
                 <div className="space-y-1">
-                  <h3 className="text-xl font-black text-white">পেমেন্ট বাতিল করা হয়েছে</h3>
+                  <h3 className="text-xl font-black text-white">পেমেন্ট সম্পন্ন হয়নি বা বাতিল করা হয়েছে</h3>
                   <p className="text-xs text-slate-400 leading-relaxed max-w-sm mx-auto">
-                    আপনি PayBD গেটওয়ে থেকে পেমেন্ট সম্পূর্ণ করেননি বা বাতিল করেছেন। কোনো টাকা কাটা হয়নি।
+                    অনলাইন গেটওয়ে থেকে পেমেন্ট সম্পন্ন করা হয়নি। আপনি চাইলে পুনরায় চেষ্টা করতে পারেন অথবা সরাসরি WhatsApp এ অর্ডার কনফার্ম করতে পারেন।
                   </p>
                 </div>
               </div>
 
               <div className="flex flex-col gap-2.5 pt-2">
-                <button
-                  type="button"
-                  onClick={handleClose}
-                  className="w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg transition-all cursor-pointer"
-                >
-                  পুনরায় চেষ্টা করুন
-                </button>
-
                 <a
                   href={whatsappUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  className="w-full py-3 px-4 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white font-extrabold text-xs shadow-lg shadow-green-900/30 flex items-center justify-center gap-2 transition-all cursor-pointer"
                 >
-                  <MessageCircle className="w-3.5 h-3.5" />
-                  <span>সহায়তার জন্য WhatsApp এ কথা বলুন</span>
+                  <MessageCircle className="w-4 h-4 fill-white" />
+                  <span>WhatsApp এ কথা বলুন</span>
                 </a>
+
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition-colors cursor-pointer"
+                >
+                  বন্ধ করুন
+                </button>
               </div>
             </>
           )}

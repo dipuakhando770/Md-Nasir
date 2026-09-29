@@ -161,7 +161,7 @@ export const CheckoutModal: React.FC = () => {
             customerName: cleanName,
             customerEmail: cleanEmail,
             orderId,
-            successUrl: `${origin}/?payment=success&order_id=${orderId}`,
+            successUrl: `${origin}/?payment=verify&order_id=${orderId}`,
             cancelUrl: `${origin}/?payment=cancel&order_id=${orderId}`,
             apiKey: settings.paybd?.apiKey,
             secretKey: settings.paybd?.secretKey,
@@ -181,14 +181,6 @@ export const CheckoutModal: React.FC = () => {
           if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
             console.warn('Popup blocked, customer can click the direct open button');
           }
-
-          try {
-            confetti({
-              particleCount: 80,
-              spread: 70,
-              origin: { y: 0.6 },
-            });
-          } catch {}
 
           return;
         } else {
@@ -217,19 +209,10 @@ export const CheckoutModal: React.FC = () => {
         total
       );
 
-      // 4. Trigger celebration confetti
-      try {
-        confetti({
-          particleCount: 70,
-          spread: 60,
-          origin: { y: 0.6 },
-        });
-      } catch {}
-
       setOrderSuccess(true);
       clearCart();
 
-      // 5. Open WhatsApp in new tab
+      // 4. Open WhatsApp in new tab
       setTimeout(() => {
         window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
       }, 600);
@@ -335,19 +318,22 @@ export const CheckoutModal: React.FC = () => {
             </div>
           ) : orderSuccess ? (
             <div className="text-center py-8 space-y-4">
-              <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center mx-auto">
+              <div className="w-16 h-16 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center mx-auto">
                 <CheckCircle2 className="w-8 h-8" />
               </div>
-              <h3 className="text-2xl font-black text-white">অর্ডার সফলভাবে তৈরি হয়েছে!</h3>
+              <h3 className="text-2xl font-black text-white">অর্ডার সফলভাবে সাবমিট হয়েছে!</h3>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 text-xs font-bold">
+                <span>⏳ পেমেন্ট ও অর্ডার অপেক্ষমাণ (Pending Approval)</span>
+              </div>
               <p className="text-xs text-slate-300 max-w-md mx-auto leading-relaxed">
-                আপনার অর্ডারের বিবরণ নিয়ে হোয়াটসঅ্যাপ ওপেন হচ্ছে। সরাসরি আমাদের হোয়াটসঅ্যাপে কনফার্ম করে ইনস্ট্যান্ট অ্যাক্সেস ও ডেলিভারি গ্রহণ করুন।
+                আপনার অর্ডারের বিবরণ নিয়ে হোয়াটসঅ্যাপ ওপেন হয়েছে। সেখানে পেমেন্ট সম্পন্ন করে বা কনফার্মেশন দিয়ে অ্যাডমিনের কাছ থেকে দ্রুত অ্যাক্সেস ও ডেলিভারি বুঝে নিন।
               </p>
               <div className="pt-4">
                 <button
                   onClick={handleClose}
-                  className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg transition-all cursor-pointer"
+                  className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg transition-all cursor-pointer"
                 >
-                  ঠিক আছে, ধন্যবাদ
+                  ঠিক আছে, বন্ধ করুন
                 </button>
               </div>
             </div>

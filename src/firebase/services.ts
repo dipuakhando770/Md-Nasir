@@ -984,7 +984,31 @@ export async function createOrder(
     createdAt: orderData.createdAt || Date.now(),
   });
 
-  // 1. Persist to Firebase Realtime Database
+  // 1. Persist to Local Storage & Event Dispatch
+  try {
+    const { saveUserLocalOrder } = await import('../utils/userOrderHistory');
+    saveUserLocalOrder({
+      orderId,
+      customerName: cleanPayload.customerName || 'গ্রাহক',
+      customerPhone: cleanPayload.customerPhone || '',
+      customerEmail: cleanPayload.customerEmail || undefined,
+      customerAddress: cleanPayload.customerAddress || undefined,
+      note: cleanPayload.note || undefined,
+      items: cleanPayload.items || [],
+      subtotal: Number(cleanPayload.subtotal) || 0,
+      deliveryCharge: Number(cleanPayload.deliveryCharge) || 0,
+      total: Number(cleanPayload.total) || 0,
+      paymentMethod: cleanPayload.paymentMethod || 'Online Payment',
+      paymentStatus: (cleanPayload.paymentStatus as any) || 'pending',
+      status: (cleanPayload.status as any) || 'pending',
+      createdAt: cleanPayload.createdAt || Date.now(),
+      transactionId: cleanPayload.paymentTrxId || undefined,
+    });
+  } catch (localErr) {
+    console.warn('Local order storage note:', localErr);
+  }
+
+  // 2. Persist to Firebase Realtime Database
   try {
     const rtdbOrderRef = ref(rtdb, `orders/${orderId}`);
     await set(rtdbOrderRef, cleanPayload);
@@ -992,7 +1016,7 @@ export async function createOrder(
     console.warn('Realtime Database order create notice:', rtdbErr);
   }
 
-  // 2. Persist to Firestore
+  // 3. Persist to Firestore
   try {
     const docRef = doc(db, 'orders', orderId);
     await setDoc(docRef, cleanPayload, { merge: true });
@@ -1008,17 +1032,48 @@ export function subscribeToOrders(
   onError?: (err: unknown) => void
 ): Unsubscribe {
   let isSubscribed = true;
-  let rtdbOrdersMap = new Map<string, Order>();
-  let firestoreOrdersMap = new Map<string, Order>();
+  const rtdbOrdersMap = new Map<string, Order>();
+  const firestoreOrdersMap = new Map<string, Order>();
+  const localOrdersMap = new Map<string, Order>();
+
+  const getLocalOrders = (): Order[] => {
+    try {
+      const raw = localStorage.getItem('ndh_user_order_history_v1');
+      if (!raw) return [];
+      const parsed: any[] = JSON.parse(raw);
+      return (parsed || []).map((o) => ({
+        id: o.orderId || o.id || `ORD-${Date.now()}`,
+        customerName: o.customerName || 'গ্রাহক',
+        customerPhone: o.customerPhone || '',
+        customerEmail: o.customerEmail,
+        customerAddress: o.customerAddress || 'ডিজিটাল ডেলিভারি',
+        note: o.note,
+        items: o.items || [],
+        subtotal: o.subtotal || 0,
+        deliveryCharge: o.deliveryCharge || 0,
+        total: o.total || 0,
+        status: o.status || 'pending',
+        paymentStatus: o.paymentStatus || 'pending',
+        paymentMethod: o.paymentMethod || 'Online',
+        paymentTrxId: o.transactionId,
+        createdAt: o.createdAt || Date.now(),
+      }));
+    } catch {
+      return [];
+    }
+  };
 
   const emitMergedOrders = () => {
     if (!isSubscribed) return;
     const mergedMap = new Map<string, Order>();
 
-    // Add Firestore orders
+    // 1. Local storage orders (as baseline)
+    localOrdersMap.forEach((ord, id) => mergedMap.set(id, ord));
+
+    // 2. Firestore orders
     firestoreOrdersMap.forEach((ord, id) => mergedMap.set(id, ord));
 
-    // Overwrite / Merge Realtime Database orders
+    // 3. Realtime Database orders
     rtdbOrdersMap.forEach((ord, id) => {
       const existing = mergedMap.get(id);
       if (!existing || (ord.updatedAt || ord.createdAt || 0) >= (existing.updatedAt || existing.createdAt || 0)) {
@@ -1033,7 +1088,28 @@ export function subscribeToOrders(
     onSuccess(ordersList);
   };
 
-  // 1. Listen to Firebase Realtime Database
+  // Preload local orders immediately
+  const initialLocal = getLocalOrders();
+  initialLocal.forEach((ord) => localOrdersMap.set(ord.id, ord));
+  if (initialLocal.length > 0) {
+    emitMergedOrders();
+  }
+
+  // 1. Listen to Local storage & window events
+  const handleLocalUpdate = () => {
+    if (!isSubscribed) return;
+    localOrdersMap.clear();
+    const updatedLocal = getLocalOrders();
+    updatedLocal.forEach((ord) => localOrdersMap.set(ord.id, ord));
+    emitMergedOrders();
+  };
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('ndh_user_orders_updated', handleLocalUpdate);
+    window.addEventListener('storage', handleLocalUpdate);
+  }
+
+  // 2. Listen to Firebase Realtime Database
   const rtdbOrdersRef = ref(rtdb, 'orders');
   const handleRtdbValue = (snapshot: any) => {
     try {
@@ -1053,25 +1129,32 @@ export function subscribeToOrders(
     }
   };
 
-  onValue(rtdbOrdersRef, handleRtdbValue, (err) => {
-    console.warn('Realtime Database orders subscription note:', err);
-  });
+  try {
+    onValue(rtdbOrdersRef, handleRtdbValue, (err) => {
+      console.warn('Realtime Database orders subscription note:', err);
+    });
+  } catch (rtdbSubErr) {
+    console.warn('RTDB onValue listener init note:', rtdbSubErr);
+  }
 
-  // 2. Listen to Firestore Database
-  const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'), limit(150));
+  // 3. Listen to Firestore Database collection (safe resilient query)
+  const q = collection(db, 'orders');
   const unsubFirestore = onSnapshot(
     q,
     (snapshot) => {
       firestoreOrdersMap.clear();
       snapshot.forEach((docSnap) => {
+        const d = docSnap.data();
         firestoreOrdersMap.set(docSnap.id, {
           id: docSnap.id,
-          ...(docSnap.data() as Omit<Order, 'id'>),
+          ...(d as Omit<Order, 'id'>),
+          createdAt: typeof d.createdAt === 'number' ? d.createdAt : Date.now(),
         });
       });
       emitMergedOrders();
     },
     (error) => {
+      console.warn('Firestore orders live query note:', error);
       if (onError) onError(error);
       emitMergedOrders();
     }
@@ -1079,7 +1162,13 @@ export function subscribeToOrders(
 
   return () => {
     isSubscribed = false;
-    off(rtdbOrdersRef, 'value', handleRtdbValue);
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('ndh_user_orders_updated', handleLocalUpdate);
+      window.removeEventListener('storage', handleLocalUpdate);
+    }
+    try {
+      off(rtdbOrdersRef, 'value', handleRtdbValue);
+    } catch {}
     unsubFirestore();
   };
 }
@@ -1098,7 +1187,20 @@ export async function updateOrderStatus(
     Object.assign(updateData, cleanFirestoreData(additionalData));
   }
 
-  // 1. Update Firebase Realtime Database
+  // 1. Update local storage
+  try {
+    const { updateUserLocalOrderStatus } = await import('../utils/userOrderHistory');
+    updateUserLocalOrderStatus(orderId, {
+      status: status as any,
+      paymentStatus: (paymentStatus as any) || (status === 'completed' ? 'paid' : 'pending'),
+      transactionId: additionalData?.paymentTrxId || additionalData?.transactionId || undefined,
+      customerEmail: additionalData?.customerEmail || undefined,
+    });
+  } catch (e) {
+    console.warn('Local order status update note:', e);
+  }
+
+  // 2. Update Firebase Realtime Database
   try {
     const rtdbOrderRef = ref(rtdb, `orders/${orderId}`);
     await update(rtdbOrderRef, updateData);
@@ -1106,7 +1208,7 @@ export async function updateOrderStatus(
     console.warn('Realtime Database order status update notice:', rtdbErr);
   }
 
-  // 2. Update Firestore Database
+  // 3. Update Firestore Database
   try {
     const docRef = doc(db, 'orders', orderId);
     await setDoc(docRef, updateData, { merge: true });
@@ -1116,7 +1218,20 @@ export async function updateOrderStatus(
 }
 
 export async function deleteOrder(orderId: string): Promise<void> {
-  // 1. Delete from Realtime Database
+  // 1. Delete from local storage
+  try {
+    const raw = localStorage.getItem('ndh_user_order_history_v1');
+    if (raw) {
+      const parsed: any[] = JSON.parse(raw);
+      const filtered = parsed.filter((o) => (o.orderId || o.id) !== orderId);
+      localStorage.setItem('ndh_user_order_history_v1', JSON.stringify(filtered));
+      window.dispatchEvent(new CustomEvent('ndh_user_orders_updated'));
+    }
+  } catch (e) {
+    console.warn('Local delete order notice:', e);
+  }
+
+  // 2. Delete from Realtime Database
   try {
     const rtdbOrderRef = ref(rtdb, `orders/${orderId}`);
     await remove(rtdbOrderRef);
@@ -1124,7 +1239,7 @@ export async function deleteOrder(orderId: string): Promise<void> {
     console.warn('Realtime Database order delete notice:', rtdbErr);
   }
 
-  // 2. Delete from Firestore
+  // 3. Delete from Firestore
   try {
     await deleteDoc(doc(db, 'orders', orderId));
   } catch (error) {
