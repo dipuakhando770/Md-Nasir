@@ -64,7 +64,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     // Track real-time analytics & local user cart history
-    analytics.trackAddToCart(product.title, product.id, product.price);
+    analytics.trackAddToCart(product, quantity);
     try {
       saveUserCartActivity({
         productId: product.id,

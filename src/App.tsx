@@ -74,7 +74,7 @@ function MainApp() {
     } else if (currentView === 'shop') {
       analytics.trackPageView('/shop', 'শপ পেজ ভিজিট');
     } else if (currentView === 'product' && activeProduct) {
-      analytics.trackProductView(activeProduct.id, activeProduct.title);
+      analytics.trackProductView(activeProduct);
     }
   }, [currentView, activeProduct?.id]);
 

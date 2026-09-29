@@ -29,6 +29,7 @@ import { OrderItem } from '../../types';
 import { updateUserLocalOrderStatus } from '../../utils/userOrderHistory';
 import { updateOrderStatus } from '../../firebase/services';
 import { dispatchOrderDeliveryEmail } from '../../utils/clientEmailDelivery';
+import { analytics } from '../../utils/analytics';
 
 export const PaymentStatusModal: React.FC = () => {
   const { settings, products } = useStore();
@@ -177,6 +178,22 @@ export const PaymentStatusModal: React.FC = () => {
             origin: { y: 0.5 },
           });
         } catch {}
+
+        // Track verified Meta Purchase (Browser Pixel + Server CAPI with deterministic deduplication)
+        const finalCalculatedAmount =
+          Number(amountParam) ||
+          items.reduce((acc, it) => acc + (it.price * (it.quantity || 1)), 0);
+
+        analytics.trackOrderPaid({
+          orderId: orderIdParam || `ORD-${Date.now().toString().slice(-6)}`,
+          amount: finalCalculatedAmount,
+          items,
+          customerEmail: cusEmail,
+          customerPhone: cusPhone,
+          customerName: cusName,
+          paymentMethod: methodParam || 'PayBD Online Gateway',
+          transactionId: trxParam || undefined,
+        });
 
         // Automated Hostinger Email Delivery
         if (cusEmail && cusEmail.includes('@')) {

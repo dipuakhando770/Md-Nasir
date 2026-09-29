@@ -133,6 +133,15 @@ export const SeoMetaManager: React.FC<SeoMetaManagerProps> = ({
       upsertLinkTag('apple-touch-icon', faviconHref);
     }
 
+    // Google Search Console Site Verification
+    const gVerify =
+      (settings as any).googleSiteVerification ||
+      (typeof process !== 'undefined' ? process.env?.VITE_GOOGLE_SITE_VERIFICATION : undefined) ||
+      '';
+    if (gVerify) {
+      upsertMetaTag('name', 'google-site-verification', gVerify);
+    }
+
     // 5. Schema.org JSON-LD Structured Data for Google Search Ranking
     const scriptId = 'dynamic-seo-jsonld';
     let scriptEl = document.getElementById(scriptId) as HTMLScriptElement | null;
@@ -147,26 +156,55 @@ export const SeoMetaManager: React.FC<SeoMetaManagerProps> = ({
       currentView === 'product' && activeProduct
         ? {
             '@context': 'https://schema.org',
-            '@type': 'Product',
-            name: activeProduct.title,
-            description: finalDescription,
-            image:
-              activeProduct.imageUrl && !activeProduct.imageUrl.startsWith('data:')
-                ? activeProduct.imageUrl
-                : undefined,
-            brand: {
-              '@type': 'Brand',
-              name: siteName,
-            },
-            offers: {
-              '@type': 'Offer',
-              price: String(activeProduct.price),
-              priceCurrency: 'BDT',
-              availability: activeProduct.available
-                ? 'https://schema.org/InStock'
-                : 'https://schema.org/OutOfStock',
-              url: canonicalUrl,
-            },
+            '@graph': [
+              {
+                '@type': 'Product',
+                name: activeProduct.title,
+                description: finalDescription,
+                image:
+                  activeProduct.imageUrl && !activeProduct.imageUrl.startsWith('data:')
+                    ? activeProduct.imageUrl
+                    : undefined,
+                sku: activeProduct.id,
+                brand: {
+                  '@type': 'Brand',
+                  name: siteName,
+                },
+                offers: {
+                  '@type': 'Offer',
+                  price: String(activeProduct.price),
+                  priceCurrency: 'BDT',
+                  availability: activeProduct.available
+                    ? 'https://schema.org/InStock'
+                    : 'https://schema.org/OutOfStock',
+                  url: canonicalUrl,
+                  priceValidUntil: new Date(Date.now() + 31536000000).toISOString().split('T')[0],
+                },
+              },
+              {
+                '@type': 'BreadcrumbList',
+                itemListElement: [
+                  {
+                    '@type': 'ListItem',
+                    position: 1,
+                    name: 'Home',
+                    item: baseOrigin,
+                  },
+                  {
+                    '@type': 'ListItem',
+                    position: 2,
+                    name: activeProduct.categoryId || 'Products',
+                    item: `${baseOrigin}/shop?category=${encodeURIComponent(activeProduct.categoryId || '')}`,
+                  },
+                  {
+                    '@type': 'ListItem',
+                    position: 3,
+                    name: activeProduct.title,
+                    item: canonicalUrl,
+                  },
+                ],
+              },
+            ],
           }
         : {
             '@context': 'https://schema.org',

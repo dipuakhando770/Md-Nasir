@@ -43,6 +43,7 @@ import { subscribeToOrders, updateOrderStatus, deleteOrder } from '../firebase/s
 import { formatPrice, formatDate, sanitizeWhatsAppNumber } from '../utils/formatters';
 import { useStore } from '../context/StoreContext';
 import { dispatchOrderDeliveryEmail } from '../utils/clientEmailDelivery';
+import { analytics } from '../utils/analytics';
 
 export const OrdersManager: React.FC = () => {
   const { settings, products } = useStore();
@@ -145,10 +146,21 @@ export const OrdersManager: React.FC = () => {
         );
       }
 
-      // If manually completed, notify admin
+      // If manually completed, notify admin and track verified purchase conversion
       if (newStatus === 'completed') {
         const targetOrder = orders.find((o) => o.id === orderId) || selectedOrder;
         if (targetOrder) {
+          analytics.trackOrderPaid({
+            orderId: targetOrder.id,
+            amount: targetOrder.total,
+            items: targetOrder.items,
+            customerEmail: (targetOrder as any).customerEmail,
+            customerPhone: targetOrder.customerPhone,
+            customerName: targetOrder.customerName,
+            paymentMethod: targetOrder.paymentMethod,
+            transactionId: targetOrder.paymentTrxId,
+          });
+
           setEmailDeliveryFeedback({
             orderId,
             success: true,

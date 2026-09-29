@@ -1,0 +1,13 @@
+# Robots.txt for Nasir Digital Hub
+# Domain: https://www.nasirdigitalhub.com/
+
+User-agent: *
+Allow: /
+Allow: /product/
+Allow: /shop
+Allow: /public/
+Disallow: /admin
+Disallow: /api/
+
+# Sitemap Location
+Sitemap: https://www.nasirdigitalhub.com/sitemap.xml

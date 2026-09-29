@@ -94,6 +94,42 @@ export const defaultCategories: Category[] = [
 ];
 
 export const defaultProducts: Product[] = [
+  // Top Featured: 100TB Digital Product Bundle
+  {
+    id: 'freelancing-digital-product-business-100tb-digital-product-bundle-all-product-price-only-299',
+    title: 'Freelancing Digital Product Business – 100TB Digital Product Bundle',
+    slug: 'freelancing-digital-product-business-100tb-digital-product-bundle-all-product-price-only-299',
+    categoryId: 'bundle',
+    shortDescription: 'Freelancing Digital Product Business – 100TB Digital Product Bundle মাত্র ২৯৯ টাকা! অল-ইন-ওয়ান মেগা বান্ডেল রিসোর্স।',
+    description: `🚀 Freelancing Digital Product Business – 100TB Digital Product Bundle (All Product Price Only 299 BDT)
+
+ডিজিটাল প্রোডাক্ট সেলিং ও ফ্রিল্যান্সিং ক্যারিয়ার গড়ে তোলার জন্য ১০০ টেরাবাইট (100TB) প্রিমিয়াম ক্লাউড রিসোর্স কালেকশন!
+
+🌟 বান্ডেলে যা যা অন্তর্ভুক্ত রয়েছে:
+• গ্রাফিক্স ডিজাইন সোর্স ফাইলস (Photoshop, Illustrator, Canva Pro Templates)
+• ভিডিও এডিটিং এলিমেন্টস, ট্রানজিশন, সাউন্ড এফেক্টস ও সিনেমাটিক LUTs
+• প্রিমিয়াম সফটওয়্যার লাইসেন্স ও এআই টুলস গাইড
+• ডিজিটাল মার্কেটিং, গুগল অ্যাডস ও ফেসবুক বুস্টিং মাস্টারক্লাস
+• ১৫০০+ ওয়ার্ডপ্রেস ও এলিমেন্টর ল্যান্ডিং পেজ টেমপ্লেটস
+• ১,৫০,০০০+ কপিরাইট ফ্রি রিলস ও শর্টস ভিডিও ব্যাংক
+• ১০০% গুগল ড্রাইভ লাইফটাইম অ্যাক্সেস ও ইন্সট্যান্ট ডেলিভারি
+
+📦 ডেলিভারি প্রক্রিয়া:
+অর্ডার সফলভাবে পেমেন্ট করার পর সঙ্গে সঙ্গে আপনার ইমেইল ও স্ক্রিনে লাইফটাইম গুগল ড্রাইভ ডাউনলোড লিঙ্ক পৌঁছে যাবে।`,
+    price: 299,
+    oldPrice: 1500,
+    imageUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=800&auto=format&fit=crop&q=80',
+    available: true,
+    featured: true,
+    newArrival: true,
+    rating: 5.0,
+    reviewCount: 97,
+    type: 'digital',
+    tags: ['bundle', '100tb', 'freelancing', 'digital product', 'resell'],
+    downloadUrl: 'https://drive.google.com/drive/folders/nasir-100tb-bundle-access',
+    createdAt: Date.now() - 50000,
+  },
+
   // 1. Canva Owner Account (Featured in Screenshot 832 & 833)
   {
     id: 'canva-lifetime-owner-account',

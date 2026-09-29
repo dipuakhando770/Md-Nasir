@@ -21,6 +21,7 @@ import {
   ChevronRight,
   UserCheck,
   Moon,
+  Globe,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useStore } from '../context/StoreContext';
@@ -35,6 +36,7 @@ import { BenefitsManager } from './BenefitsManager';
 import { OrdersManager } from './OrdersManager';
 import { PaybdManager } from './PaybdManager';
 import { AnalyticsDashboard } from './AnalyticsDashboard';
+import { SeoHealthDashboard } from './SeoHealthDashboard';
 import { subscribeToOrders } from '../firebase/services';
 import { Order } from '../types';
 
@@ -115,6 +117,13 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onBackToStore }) => {
           icon: CreditCard,
           badge: isPaybdActive ? 'সক্রিয়' : 'বন্ধ',
           badgeColor: isPaybdActive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-400',
+        },
+        {
+          id: 'seo',
+          label: 'SEO ও কনভার্সন মনিটর',
+          icon: Globe,
+          badge: 'রেডি',
+          badgeColor: 'bg-emerald-500/20 text-emerald-400',
         },
         { id: 'settings', label: 'ওয়েবসাইট ও SMTP সেটিংস', icon: Settings },
       ],
@@ -325,6 +334,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onBackToStore }) => {
           {activeTab === 'campaigns' && <CampaignsManager />}
           {activeTab === 'benefits' && <BenefitsManager />}
           {activeTab === 'paybd' && <PaybdManager />}
+          {activeTab === 'seo' && <SeoHealthDashboard />}
           {activeTab === 'settings' && <StoreSettingsManager />}
         </main>
       </div>

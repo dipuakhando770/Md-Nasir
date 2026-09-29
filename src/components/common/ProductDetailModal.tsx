@@ -27,6 +27,7 @@ import {
 } from '../../utils/formatters';
 import { useCart } from '../../context/CartContext';
 import { useStore } from '../../context/StoreContext';
+import { analytics } from '../../utils/analytics';
 
 interface ProductDetailModalProps {
   product: Product | null;
@@ -55,6 +56,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       setCartCount(Math.floor(Math.random() * 5) + 5);
       setQuantity(1);
       setIsDownloaded(false);
+      analytics.trackProductView(product);
     }
   }, [product]);
 

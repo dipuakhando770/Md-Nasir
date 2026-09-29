@@ -45,6 +45,21 @@ export const CheckoutModal: React.FC = () => {
   const [activeOrderId, setActiveOrderId] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Track InitiateCheckout when customer opens checkout modal
+  React.useEffect(() => {
+    if (isCheckoutOpen && cart.length > 0) {
+      analytics.trackCheckoutStart(
+        cart.map((item) => ({
+          productId: item.product.id,
+          title: item.product.title,
+          price: item.product.price,
+          quantity: item.quantity,
+        })),
+        total
+      );
+    }
+  }, [isCheckoutOpen]);
+
   if (!isCheckoutOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {

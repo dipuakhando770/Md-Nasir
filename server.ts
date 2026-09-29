@@ -3,6 +3,8 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { sendOrderDeliveryEmail, testSmtpConnection } from './src/utils/mailer';
+import { sendMetaConversionsApiEvent } from './src/utils/metaCapi';
+import { generateDynamicSitemapXml, generateRobotsTxt } from './src/utils/sitemapGenerator';
 
 dotenv.config();
 
@@ -210,6 +212,27 @@ const handlePaymentCallback = async (req: express.Request, res: express.Response
       }
     }
 
+    if (isVerified && invoiceId) {
+      // Dispatch Server CAPI Purchase with deterministic eventId matching frontend
+      const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.ip;
+      const clientUserAgent = req.headers['user-agent'] || '';
+      sendMetaConversionsApiEvent({
+        eventName: 'Purchase',
+        eventId: `purchase_${invoiceId}`,
+        eventSourceUrl: `${origin}/?payment=success&order_id=${encodeURIComponent(invoiceId)}`,
+        userData: {
+          clientIp,
+          clientUserAgent,
+        },
+        customData: {
+          value: Number(paymentAmount) || 0,
+          currency: 'BDT',
+          order_id: invoiceId,
+          payment_method: paymentMethod,
+        },
+      }).catch((err) => console.warn('[Meta CAPI Webhook Warning]:', err));
+    }
+
     const redirectStatus = isVerified ? 'success' : 'cancel';
     const redirectUrl = `${origin}/?payment=${redirectStatus}&order_id=${encodeURIComponent(
       invoiceId
@@ -243,6 +266,74 @@ app.all('/api/payment/callback', handlePaymentCallback);
 app.all('/api/payment/webhook', handlePaymentCallback);
 app.all('/modules/gateways/callback/jonotapay.php', handlePaymentCallback);
 app.all('/modules/gateways/callback/paybd.php', handlePaymentCallback);
+
+// Dynamic XML Sitemap Endpoint for Search Engines (Google, Bing)
+app.get('/sitemap.xml', (req, res) => {
+  try {
+    const forwardedHost = req.headers['x-forwarded-host'];
+    const hostHeader = Array.isArray(forwardedHost) ? forwardedHost[0] : forwardedHost || req.headers.host;
+    const protoHeader = req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http');
+    const baseUrl = hostHeader ? `${protoHeader}://${hostHeader}` : 'https://www.nasirdigitalhub.com';
+
+    const xml = generateDynamicSitemapXml(baseUrl);
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=86400');
+    return res.send(xml);
+  } catch (error: any) {
+    console.error('Sitemap generation error:', error);
+    return res.status(500).send('Error generating sitemap');
+  }
+});
+
+// Dynamic Robots.txt Endpoint
+app.get('/robots.txt', (req, res) => {
+  try {
+    const forwardedHost = req.headers['x-forwarded-host'];
+    const hostHeader = Array.isArray(forwardedHost) ? forwardedHost[0] : forwardedHost || req.headers.host;
+    const protoHeader = req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http');
+    const baseUrl = hostHeader ? `${protoHeader}://${hostHeader}` : 'https://www.nasirdigitalhub.com';
+
+    const robots = generateRobotsTxt(baseUrl);
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=86400');
+    return res.send(robots);
+  } catch (error: any) {
+    return res.status(500).send('User-agent: *\nAllow: /\n');
+  }
+});
+
+// Server-Side Meta Conversions API (CAPI) Tracking Endpoint
+app.post('/api/meta-conversions', async (req, res) => {
+  try {
+    const { eventName, eventId, eventSourceUrl, userData, customData } = req.body;
+
+    if (!eventName || !eventId) {
+      return res.status(400).json({ success: false, message: 'eventName and eventId are required' });
+    }
+
+    const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.ip;
+    const clientUserAgent = req.headers['user-agent'] || '';
+
+    const enrichedUserData = {
+      ...userData,
+      clientIp,
+      clientUserAgent,
+    };
+
+    const result = await sendMetaConversionsApiEvent({
+      eventName,
+      eventId,
+      eventSourceUrl,
+      userData: enrichedUserData,
+      customData,
+    });
+
+    return res.json(result);
+  } catch (error: any) {
+    console.error('Meta CAPI proxy error:', error);
+    return res.status(500).json({ success: false, message: error?.message });
+  }
+});
 
 // Optional Payment Verification Endpoint
 app.post('/api/payment/verify', async (req, res) => {

@@ -1,12 +1,6 @@
 import { logActivity } from '../firebase/services';
-import { ActivityType } from '../types';
-
-declare global {
-  interface Window {
-    fbq?: (...args: any[]) => void;
-    _fbq?: any;
-  }
-}
+import { ActivityType, OrderItem, Product } from '../types';
+import { metaPixel } from './metaPixel';
 
 function getDeviceInfo(): string {
   if (typeof window === 'undefined') return 'Unknown';
@@ -24,14 +18,10 @@ function getDeviceInfo(): string {
 
 export const analytics = {
   trackPageView: (path: string, title?: string) => {
-    try {
-      if (typeof window !== 'undefined' && typeof window.fbq === 'function') {
-        window.fbq('track', 'PageView');
-      }
-    } catch {
-      // Ignore fbq errors
-    }
+    // 1. Meta Pixel PageView (with duplicate prevention)
+    metaPixel.trackPageView(path);
 
+    // 2. Real-time Firebase Activity log
     logActivity({
       type: 'page_view',
       title: title || `পেজ ভিজিট: ${path}`,
@@ -40,52 +30,33 @@ export const analytics = {
     });
   },
 
-  trackProductView: (productId: string, productTitle: string, price?: number) => {
-    try {
-      if (typeof window !== 'undefined' && typeof window.fbq === 'function') {
-        window.fbq('track', 'ViewContent', {
-          content_name: productTitle,
-          content_ids: [productId],
-          content_type: 'product',
-          value: price || 0,
-          currency: 'BDT',
-        });
-      }
-    } catch {
-      // Ignore fbq errors
-    }
+  trackProductView: (product: { id: string; title: string; price?: number; slug?: string } | Product) => {
+    // 1. Meta Pixel + CAPI ViewContent
+    metaPixel.trackViewContent(product as Product);
 
+    // 2. Real-time Firebase Activity log
     logActivity({
       type: 'product_view',
-      title: `পণ্য দেখা হয়েছে: ${productTitle}`,
-      productId,
-      productTitle,
-      path: `/product/${productId}`,
+      title: `পণ্য দেখা হয়েছে: ${product.title}`,
+      productId: product.id,
+      productTitle: product.title,
+      path: `/product/${product.slug || product.id}`,
+      amount: product.price,
       device: getDeviceInfo(),
     });
   },
 
-  trackAddToCart: (productTitle: string, productId?: string, price?: number) => {
-    try {
-      if (typeof window !== 'undefined' && typeof window.fbq === 'function') {
-        window.fbq('track', 'AddToCart', {
-          content_name: productTitle,
-          content_ids: productId ? [productId] : [],
-          content_type: 'product',
-          value: price || 0,
-          currency: 'BDT',
-        });
-      }
-    } catch {
-      // Ignore fbq errors
-    }
+  trackAddToCart: (product: Product, quantity = 1) => {
+    // 1. Meta Pixel + CAPI AddToCart
+    metaPixel.trackAddToCart(product, quantity);
 
+    // 2. Real-time Firebase Activity log
     logActivity({
       type: 'add_to_cart',
-      title: `কার্টে যোগ করা হয়েছে: ${productTitle}`,
-      productTitle,
-      productId,
-      amount: price,
+      title: `কার্টে যোগ করা হয়েছে: ${product.title}`,
+      productTitle: product.title,
+      productId: product.id,
+      amount: (product.price || 0) * quantity,
       device: getDeviceInfo(),
     });
   },
@@ -100,40 +71,27 @@ export const analytics = {
     });
   },
 
-  trackCheckoutStart: (amount: number, itemCount: number) => {
-    try {
-      if (typeof window !== 'undefined' && typeof window.fbq === 'function') {
-        window.fbq('track', 'InitiateCheckout', {
-          num_items: itemCount,
-          value: amount,
-          currency: 'BDT',
-        });
-      }
-    } catch {
-      // Ignore fbq errors
-    }
+  trackCheckoutStart: (
+    items: { productId: string; price: number; quantity?: number; title?: string }[],
+    totalAmount: number
+  ) => {
+    // 1. Meta Pixel + CAPI InitiateCheckout
+    metaPixel.trackInitiateCheckout(items, totalAmount);
 
+    // 2. Real-time Firebase Activity log
     logActivity({
       type: 'checkout_start',
-      title: `চেকআউট শুরু হয়েছে (${itemCount}টি পণ্য)`,
-      amount,
+      title: `চেকআউট শুরু হয়েছে (${items.length}টি পণ্য)`,
+      amount: totalAmount,
       device: getDeviceInfo(),
     });
   },
 
+  /**
+   * Internal order placement logger.
+   * NOTE: Does NOT fire Meta Purchase. Purchase is strictly reserved for verified payment success.
+   */
   trackOrderPlaced: (orderId: string, customerName: string, customerPhone: string, amount: number) => {
-    try {
-      if (typeof window !== 'undefined' && typeof window.fbq === 'function') {
-        window.fbq('track', 'Purchase', {
-          value: amount,
-          currency: 'BDT',
-          order_id: orderId,
-        });
-      }
-    } catch {
-      // Ignore fbq errors
-    }
-
     logActivity({
       type: 'order_placed',
       title: `নতুন অর্ডার প্লেস হয়েছে (#${orderId.slice(-6)})`,
@@ -141,6 +99,35 @@ export const analytics = {
       customerName,
       customerPhone,
       amount,
+      device: getDeviceInfo(),
+    });
+  },
+
+  /**
+   * CRITICAL: Track verified successful purchase.
+   * Fired ONLY after backend or payment gateway confirms order status is PAID / COMPLETED.
+   */
+  trackOrderPaid: (orderData: {
+    orderId: string;
+    amount: number;
+    items: OrderItem[];
+    customerEmail?: string;
+    customerPhone?: string;
+    customerName?: string;
+    paymentMethod?: string;
+    transactionId?: string;
+  }) => {
+    // 1. Meta Pixel + CAPI Purchase (with strict deduplication and deterministic eventID)
+    metaPixel.trackPurchase(orderData);
+
+    // 2. Real-time Firebase Activity log
+    logActivity({
+      type: 'order_placed',
+      title: `পেমেন্ট সম্পন্ন ও অর্ডার ডেলিভারি (#${orderData.orderId.slice(-6)})`,
+      orderId: orderData.orderId,
+      customerName: orderData.customerName,
+      customerPhone: orderData.customerPhone,
+      amount: orderData.amount,
       device: getDeviceInfo(),
     });
   },
@@ -158,7 +145,7 @@ export const analytics = {
   trackWhatsAppClick: (productTitle?: string) => {
     try {
       if (typeof window !== 'undefined' && typeof window.fbq === 'function') {
-        window.fbq('track', 'Contact', {
+        window.fbq('trackCustom', 'WhatsAppContact', {
           content_name: productTitle || 'General Support',
         });
       }
@@ -168,16 +155,16 @@ export const analytics = {
 
     logActivity({
       type: 'whatsapp_click',
-      title: productTitle ? `হোয়াটসঅ্যাপে অর্ডার অনুসন্ধান: ${productTitle}` : 'হোয়াটসঅ্যাপে চ্যাট শুরু',
+      title: `হোয়াটসঅ্যাপে যোগাযোগ: ${productTitle || 'সরাসরি হেল্পলাইন'}`,
       productTitle,
       device: getDeviceInfo(),
     });
   },
 
-  trackDownload: (productTitle: string, productId?: string) => {
+  trackDirectDownload: (productTitle: string, productId?: string) => {
     logActivity({
       type: 'direct_download',
-      title: `ফ্রি প্রোডাক্ট ডাউনলোড: ${productTitle}`,
+      title: `সরাসরি ডাউনলোড শুরু: ${productTitle}`,
       productTitle,
       productId,
       device: getDeviceInfo(),
